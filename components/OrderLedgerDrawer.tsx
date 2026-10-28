@@ -33,6 +33,7 @@ import {
   saveStoredOrder,
   updateStoredOrderStage,
   deleteStoredOrder,
+  updateOrderHuidCode,
   generateKarigarWhatsAppMessage,
   exportOrdersJSON,
   importOrdersJSON,
@@ -77,6 +78,7 @@ export const OrderLedgerDrawer: React.FC<OrderLedgerDrawerProps> = ({
   const [advanceOldGold, setAdvanceOldGold] = useState<string>("0");
   const [customNotes, setCustomNotes] = useState<string>("");
   const [karigarName, setKarigarName] = useState<string>("Master Craftsman");
+  const [huidInput, setHuidInput] = useState<string>("");
 
   // Load orders on mount & when opened
   useEffect(() => {
@@ -220,6 +222,7 @@ export const OrderLedgerDrawer: React.FC<OrderLedgerDrawerProps> = ({
       balancePayable: balance,
       customNotes,
       karigarName,
+      huidCode: huidInput ? huidInput.toUpperCase().trim() : undefined,
       stageHistory: [
         {
           stage: "booked",
@@ -528,6 +531,35 @@ export const OrderLedgerDrawer: React.FC<OrderLedgerDrawerProps> = ({
                             </button>
                           </div>
                         )}
+
+                        {/* BIS 916 HUID Hallmarking Code Tag & Input (Phase 7) */}
+                        <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
+                          <span className="text-[11px] text-ivory-muted flex items-center gap-1.5">
+                            <span className="w-4 h-4 rounded bg-amber-900/60 border border-amber-500/40 text-[9px] font-bold text-amber-300 flex items-center justify-center">
+                              BIS
+                            </span>
+                            <span>BIS 916 HUID Code:</span>
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              maxLength={6}
+                              placeholder="e.g. HD8792"
+                              defaultValue={order.huidCode || ""}
+                              onBlur={(e) => {
+                                const val = e.target.value.trim().toUpperCase();
+                                if (val !== (order.huidCode || "")) {
+                                  updateOrderHuidCode(order.id, val);
+                                  setOrders(getStoredOrders());
+                                }
+                              }}
+                              className="w-24 bg-obsidian-950 border border-gold-900/60 rounded px-2 py-0.5 text-center text-xs font-mono font-bold text-gold-300 uppercase focus:outline-none focus:border-gold-400"
+                            />
+                            {order.huidCode && (
+                              <span className="text-[10px] text-emerald-400 font-semibold">✓ Stamped</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );
@@ -625,6 +657,23 @@ export const OrderLedgerDrawer: React.FC<OrderLedgerDrawerProps> = ({
                       value={advanceOldGold}
                       onChange={(e) => setAdvanceOldGold(e.target.value)}
                       className="w-full bg-obsidian-950 border border-gold-900/60 rounded-xl px-3 py-2 text-xs text-gold-300 font-mono focus:outline-none focus:border-gold-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-[11px] text-ivory-muted flex items-center gap-1.5">
+                      <span className="w-3.5 h-3.5 rounded bg-amber-900/60 border border-amber-500/40 text-[8px] font-bold text-amber-300 flex items-center justify-center">
+                        BIS
+                      </span>
+                      <span>BIS 916 HUID Hallmarking Code (Optional - 6 Characters):</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="e.g. HD8792"
+                      value={huidInput}
+                      onChange={(e) => setHuidInput(e.target.value.toUpperCase())}
+                      className="w-full bg-obsidian-950 border border-gold-900/60 rounded-xl px-3 py-2 text-xs text-gold-300 font-mono focus:outline-none focus:border-gold-500 uppercase"
                     />
                   </div>
                 </div>

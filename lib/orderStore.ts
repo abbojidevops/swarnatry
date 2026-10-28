@@ -116,6 +116,7 @@ export interface GoldsmithOrder {
   karigarName?: string;
   referencePhotoBlob?: string;
   tryOnSnapshot?: string;
+  huidCode?: string; // 6-digit BIS Hallmarking Unique Identification (e.g. "HD8792")
   stageHistory: Array<{
     stage: KarigarStage;
     timestamp: string;
@@ -333,6 +334,25 @@ export function updateStoredOrderStage(
     return target;
   } catch (err) {
     console.warn("Could not update order stage:", err);
+    return null;
+  }
+}
+
+/**
+ * Update 6-digit BIS HUID Hallmarking code on an order
+ */
+export function updateOrderHuidCode(orderId: string, huidCode: string): GoldsmithOrder | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const orders = getStoredOrders();
+    const target = orders.find((o) => o.id === orderId);
+    if (!target) return null;
+
+    target.huidCode = huidCode.toUpperCase().trim();
+    localStorage.setItem(LS_ORDERS_KEY, JSON.stringify(orders));
+    return target;
+  } catch (err) {
+    console.warn("Could not update HUID code:", err);
     return null;
   }
 }

@@ -58,6 +58,7 @@ import {
   MessageSquare,
   Search,
   Filter,
+  Zap,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import {
@@ -91,6 +92,7 @@ interface AdminUploadStudioProps {
   isOpen: boolean;
   onClose: () => void;
   onSaveOrnament: (item: JewelryItem) => Promise<void>;
+  onSaveOrnamentsBatch?: (items: JewelryItem[]) => Promise<void>;
   onDeleteOrnament: (id: string) => Promise<void>;
   onExportCatalog: () => Promise<string>;
   onImportCatalog: (json: string) => Promise<number>;
@@ -108,6 +110,7 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
   isOpen,
   onClose,
   onSaveOrnament,
+  onSaveOrnamentsBatch,
   onDeleteOrnament,
   onExportCatalog,
   onImportCatalog,
@@ -167,10 +170,217 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
     return () => clearInterval(timer);
   }, [cooldownRemaining]);
 
-  // Workflow Active Tab: "studio" | "manage" | "cloud" | "settings" | "leads"
+  // Workflow Active Tab: "studio" | "bulk" | "manage" | "cloud" | "settings" | "leads"
   const [activeTab, setActiveTab] = useState<
-    "studio" | "manage" | "cloud" | "settings" | "leads"
+    "studio" | "bulk" | "manage" | "cloud" | "settings" | "leads"
   >("studio");
+
+  // Bulk Multi-Photo Batch Uploader State (Phase 7)
+  interface BulkDraftItem {
+    id: string;
+    name: string;
+    teluguName?: string;
+    category: JewelryCategory;
+    purity: "22K" | "24K" | "18K";
+    minGrams: number;
+    maxGrams: number;
+    defaultGrams: number;
+    wastagePercent: number;
+    makingChargePerGram: number;
+    stoneWeightGrams: number;
+    stoneCostFlat: number;
+    svgContent: string;
+    rawImageName: string;
+  }
+
+  const [bulkDrafts, setBulkDrafts] = useState<BulkDraftItem[]>([]);
+  const [isProcessingBulk, setIsProcessingBulk] = useState<boolean>(false);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [bulkDefaults, setBulkDefaults] = useState<{
+    category: JewelryCategory;
+    purity: "22K" | "24K" | "18K";
+    minGrams: number;
+    maxGrams: number;
+    defaultGrams: number;
+    wastagePercent: number;
+    makingCharge: number;
+  }>({
+    category: "necklaces",
+    purity: "22K",
+    minGrams: 36,
+    maxGrams: 64,
+    defaultGrams: 48,
+    wastagePercent: 12.5,
+    makingCharge: 480,
+  });
+
+  const handleBatchFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const fileList = Array.from(e.target.files);
+    setIsProcessingBulk(true);
+    setBulkProgress({ current: 0, total: fileList.length });
+
+    const newDrafts: BulkDraftItem[] = [];
+
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      setBulkProgress({ current: i + 1, total: fileList.length });
+
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = reject;
+          image.src = dataUrl;
+        });
+
+        const maxEdge = 600;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxEdge || h > maxEdge) {
+          if (w > h) {
+            h = Math.round((h * maxEdge) / w);
+            w = maxEdge;
+          } else {
+            w = Math.round((w * maxEdge) / h);
+            h = maxEdge;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+          const cleaned = removeBackgroundCanvas(canvas, {
+            tolerance: 32,
+            feather: 2,
+            preserveGoldTones: true,
+          });
+          const cleanedUri = cleaned.toDataURL("image/png");
+
+          const cleanName = file.name
+            .replace(/\.[^/.]+$/, "")
+            .replace(/[-_]/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+
+          newDrafts.push({
+            id: `SW-BULK-${Math.floor(100 + Math.random() * 900)}`,
+            name: cleanName,
+            category: bulkDefaults.category,
+            purity: bulkDefaults.purity,
+            minGrams: bulkDefaults.minGrams,
+            maxGrams: bulkDefaults.maxGrams,
+            defaultGrams: bulkDefaults.defaultGrams,
+            wastagePercent: bulkDefaults.wastagePercent,
+            makingChargePerGram: bulkDefaults.makingCharge,
+            stoneWeightGrams: 0,
+            stoneCostFlat: 0,
+            svgContent: cleanedUri,
+            rawImageName: file.name,
+          });
+        }
+      } catch (err) {
+        console.warn("Batch cleanup error for file:", file.name, err);
+      }
+    }
+
+    setBulkDrafts((prev) => [...prev, ...newDrafts]);
+    setIsProcessingBulk(false);
+  };
+
+  const handleApplyDefaultsToAll = () => {
+    setBulkDrafts((prev) =>
+      prev.map((d) => ({
+        ...d,
+        category: bulkDefaults.category,
+        purity: bulkDefaults.purity,
+        minGrams: bulkDefaults.minGrams,
+        maxGrams: bulkDefaults.maxGrams,
+        defaultGrams: bulkDefaults.defaultGrams,
+        wastagePercent: bulkDefaults.wastagePercent,
+        makingChargePerGram: bulkDefaults.makingCharge,
+      }))
+    );
+  };
+
+  const handleUpdateBulkDraft = (index: number, updates: Partial<BulkDraftItem>) => {
+    setBulkDrafts((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], ...updates };
+      return copy;
+    });
+  };
+
+  const handleDeleteBulkDraft = (index: number) => {
+    setBulkDrafts((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePublishAllBatch = async () => {
+    if (bulkDrafts.length === 0) return;
+    setIsPublishing(true);
+
+    const itemsToSave: JewelryItem[] = bulkDrafts.map((d) => ({
+      id: d.id,
+      name: d.name,
+      teluguName: d.teluguName,
+      category: d.category,
+      categoryLabel: d.category.charAt(0).toUpperCase() + d.category.slice(1),
+      style: "Temple",
+      purity: d.purity,
+      minGrams: d.minGrams,
+      maxGrams: d.maxGrams,
+      defaultGrams: d.defaultGrams,
+      wastagePercent: d.wastagePercent,
+      makingChargePerGram: d.makingChargePerGram,
+      stoneWeightGrams: d.stoneWeightGrams,
+      stoneCostFlat: d.stoneCostFlat,
+      gemstones: "Natural Kundan & Basra Pearls",
+      description: `Handcrafted ${d.purity} ${d.name} calibrated for virtual try-on and 100% price transparency.`,
+      craftsmanshipNote: `Handcrafted ${d.purity} gold jewelry calibrated for virtual try-on and 100% price transparency.`,
+      svgContent: d.svgContent,
+      anchorType:
+        d.category === "earrings"
+          ? "earrings"
+          : d.category === "nose-rings"
+          ? "nose"
+          : d.category === "maang-tikka"
+          ? "forehead"
+          : "necklace",
+      aspectRatio: 1.0,
+      defaultScale: 1.0,
+      defaultOffsetY: d.category === "necklaces" ? 25 : 0,
+      defaultOffsetX: 0,
+      isCustom: true,
+      createdAt: new Date().toISOString(),
+    }));
+
+    if (onSaveOrnamentsBatch) {
+      await onSaveOrnamentsBatch(itemsToSave);
+    } else {
+      for (const item of itemsToSave) {
+        await onSaveOrnament(item);
+      }
+    }
+
+    confetti({
+      particleCount: 80,
+      spread: 70,
+      colors: ["#D4AF37", "#10B981", "#FFFFFF"],
+    });
+
+    setBulkDrafts([]);
+    setIsPublishing(false);
+    setActiveTab("manage");
+  };
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
 
   // Customer Leads & CRM State (Phase 6)
@@ -859,10 +1069,10 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
 
           <div className="flex items-center gap-2">
             {isAuthenticated && (
-              <div className="hidden sm:flex items-center gap-1 bg-obsidian-950 p-1 rounded-xl border border-gold-900/60 text-xs">
+              <div className="flex items-center gap-1 bg-obsidian-950 p-1 rounded-xl border border-gold-900/60 text-xs overflow-x-auto max-w-[65vw] sm:max-w-none">
                 <button
                   onClick={() => setActiveTab("studio")}
-                  className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                  className={`px-3 py-1 rounded-lg font-medium transition-colors shrink-0 ${
                     activeTab === "studio"
                       ? "bg-gold-500 text-obsidian-950 font-semibold"
                       : "text-ivory-muted hover:text-ivory"
@@ -871,8 +1081,24 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
                   Upload Studio
                 </button>
                 <button
+                  onClick={() => setActiveTab("bulk")}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-lg font-medium transition-colors shrink-0 ${
+                    activeTab === "bulk"
+                      ? "bg-gold-500 text-obsidian-950 font-semibold"
+                      : "text-ivory-muted hover:text-ivory"
+                  }`}
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>Bulk Upload</span>
+                  {bulkDrafts.length > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-gold-500/20 text-gold-300 font-bold">
+                      {bulkDrafts.length}
+                    </span>
+                  )}
+                </button>
+                <button
                   onClick={() => setActiveTab("manage")}
-                  className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                  className={`px-3 py-1 rounded-lg font-medium transition-colors shrink-0 ${
                     activeTab === "manage"
                       ? "bg-gold-500 text-obsidian-950 font-semibold"
                       : "text-ivory-muted hover:text-ivory"
@@ -882,7 +1108,7 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
                 </button>
                 <button
                   onClick={() => setActiveTab("cloud")}
-                  className={`flex items-center gap-1 px-3 py-1 rounded-lg font-medium transition-colors ${
+                  className={`flex items-center gap-1 px-3 py-1 rounded-lg font-medium transition-colors shrink-0 ${
                     activeTab === "cloud"
                       ? "bg-gold-500 text-obsidian-950 font-semibold"
                       : "text-ivory-muted hover:text-ivory"
@@ -893,7 +1119,7 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
                 </button>
                 <button
                   onClick={() => setActiveTab("settings")}
-                  className={`flex items-center gap-1 px-3 py-1 rounded-lg font-medium transition-colors ${
+                  className={`flex items-center gap-1 px-3 py-1 rounded-lg font-medium transition-colors shrink-0 ${
                     activeTab === "settings"
                       ? "bg-gold-500 text-obsidian-950 font-semibold"
                       : "text-ivory-muted hover:text-ivory"
@@ -904,7 +1130,7 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
                 </button>
                 <button
                   onClick={() => setActiveTab("leads")}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-colors shrink-0 ${
                     activeTab === "leads"
                       ? "bg-gold-500 text-obsidian-950 font-semibold"
                       : "text-ivory-muted hover:text-ivory"
@@ -1880,6 +2106,422 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
                 </table>
               </div>
             </div>
+          </div>
+        ) : activeTab === "bulk" ? (
+          /* TAB 6: Bulk Multi-Photo Batch Uploader & Quick-Grid Editor (Phase 7) */
+          <div className="p-6 overflow-y-auto space-y-6 flex-1 text-ivory">
+            {/* Header Description & Stats */}
+            <div className="p-5 rounded-2xl bg-obsidian-950/80 border border-gold-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-cinzel text-lg font-bold text-ivory flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-gold-400" />
+                  <span>Bulk Multi-Photo Ornament Uploader (బల్క్ ఆభరణాల అప్‌లోడ్)</span>
+                </h3>
+                <p className="text-xs text-ivory-muted mt-1 max-w-xl">
+                  Upload 10 to 50 jewelry photos in 1 click. Our engine automatically resizes, isolates gold from white/grey backgrounds, and stages ornaments into an editable spreadsheet quick-grid for 1-click publishing.
+                </p>
+              </div>
+
+              {bulkDrafts.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setBulkDrafts([])}
+                    className="px-3 py-2 rounded-xl border border-ruby-900/60 text-ruby-400 hover:bg-ruby-950/40 text-xs font-semibold transition-colors"
+                  >
+                    Clear All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePublishAllBatch}
+                    disabled={isPublishing}
+                    className="btn-gold-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-gold-glow"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>{isPublishing ? "Publishing All..." : `Publish All (${bulkDrafts.length}) to Catalog`}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Drag & Drop Multi-Photo Upload Area */}
+            <div className="relative">
+              <input
+                type="file"
+                id="bulk-photo-upload"
+                accept="image/*"
+                multiple
+                disabled={isProcessingBulk}
+                onChange={handleBatchFileSelect}
+                className="hidden"
+              />
+              <label
+                htmlFor="bulk-photo-upload"
+                className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                  isProcessingBulk
+                    ? "border-gold-500/50 bg-obsidian-950/90 cursor-not-allowed"
+                    : "border-gold-500/40 hover:border-gold-400 bg-obsidian-950/60 hover:bg-obsidian-900/60"
+                }`}
+              >
+                <div className="p-3.5 rounded-2xl bg-gold-500/10 border border-gold-500/30 text-gold-400 mb-3 shadow-gold-glow">
+                  <Upload className="w-8 h-8" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="font-cinzel text-sm sm:text-base font-bold text-ivory">
+                    {isProcessingBulk
+                      ? "Processing & Isolating Jewelry Backgrounds..."
+                      : "Drag & Drop 5 to 50 Jewelry Photos, or Click to Browse"}
+                  </p>
+                  <p className="text-xs text-ivory-muted">
+                    Supports JPG, PNG, WEBP. Select multiple files at once from your folder.
+                  </p>
+                </div>
+
+                {isProcessingBulk && (
+                  <div className="w-full max-w-md mt-4 space-y-1.5">
+                    <div className="flex justify-between text-xs text-gold-300">
+                      <span>Cleaning Backgrounds:</span>
+                      <span className="font-mono">{bulkProgress.current} / {bulkProgress.total}</span>
+                    </div>
+                    <div className="w-full bg-obsidian-900 h-2.5 rounded-full overflow-hidden border border-gold-900/60">
+                      <div
+                        className="bg-gradient-to-r from-gold-600 to-gold-400 h-full transition-all duration-200"
+                        style={{
+                          width: `${(bulkProgress.current / Math.max(bulkProgress.total, 1)) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </label>
+            </div>
+
+            {/* Batch Defaults Setting Bar */}
+            <div className="p-4 rounded-2xl bg-obsidian-950/90 border border-gold-900/60 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gold-900/40 pb-2">
+                <span className="text-xs font-semibold text-gold-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Batch Presets & Defaults (అన్నింటికీ వర్తించే డిఫాల్ట్ సెట్టింగ్స్)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleApplyDefaultsToAll}
+                  disabled={bulkDrafts.length === 0}
+                  className="px-3 py-1 rounded-lg bg-gold-500/20 hover:bg-gold-500/30 border border-gold-500/40 text-gold-300 text-xs font-semibold transition-colors disabled:opacity-40"
+                >
+                  ⚡ Apply Defaults to All {bulkDrafts.length} Loaded Ornaments
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-ivory-muted">Default Category:</label>
+                  <select
+                    value={bulkDefaults.category}
+                    onChange={(e) =>
+                      setBulkDefaults((prev) => ({
+                        ...prev,
+                        category: e.target.value as JewelryCategory,
+                      }))
+                    }
+                    className="w-full bg-obsidian-900 border border-gold-900/60 rounded-xl px-2.5 py-1.5 text-xs text-ivory focus:outline-none focus:border-gold-400"
+                  >
+                    <option value="necklaces">Necklaces (హారాలు/నెక్లెస్‌లు)</option>
+                    <option value="chokers">Chokers (చోకర్లు)</option>
+                    <option value="earrings">Earrings (దుద్దులు/జుంకాలు)</option>
+                    <option value="maang-tikka">Maang Tikka (పాపిడి బిళ్ళ)</option>
+                    <option value="bangles">Bangles (గాజులు/కడియాలు)</option>
+                    <option value="nose-rings">Nose Rings (ముక్కుపుడక)</option>
+                    <option value="vaddanam">Vaddanam (వడ్డాణం)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-ivory-muted">Purity:</label>
+                  <select
+                    value={bulkDefaults.purity}
+                    onChange={(e) =>
+                      setBulkDefaults((prev) => ({
+                        ...prev,
+                        purity: e.target.value as "22K" | "24K" | "18K",
+                      }))
+                    }
+                    className="w-full bg-obsidian-900 border border-gold-900/60 rounded-xl px-2.5 py-1.5 text-xs text-ivory focus:outline-none focus:border-gold-400"
+                  >
+                    <option value="22K">22K 916 Hallmark</option>
+                    <option value="24K">24K 999 Bullion</option>
+                    <option value="18K">18K 750 Hallmark</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-ivory-muted">Min Grams (g):</label>
+                  <input
+                    type="number"
+                    value={bulkDefaults.minGrams}
+                    onChange={(e) =>
+                      setBulkDefaults((prev) => ({
+                        ...prev,
+                        minGrams: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full bg-obsidian-900 border border-gold-900/60 rounded-xl px-2.5 py-1.5 text-xs text-ivory font-mono focus:outline-none focus:border-gold-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-ivory-muted">Max Grams (g):</label>
+                  <input
+                    type="number"
+                    value={bulkDefaults.maxGrams}
+                    onChange={(e) =>
+                      setBulkDefaults((prev) => ({
+                        ...prev,
+                        maxGrams: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full bg-obsidian-900 border border-gold-900/60 rounded-xl px-2.5 py-1.5 text-xs text-ivory font-mono focus:outline-none focus:border-gold-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-ivory-muted">Wastage VA (%):</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={bulkDefaults.wastagePercent}
+                    onChange={(e) =>
+                      setBulkDefaults((prev) => ({
+                        ...prev,
+                        wastagePercent: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full bg-obsidian-900 border border-gold-900/60 rounded-xl px-2.5 py-1.5 text-xs text-ivory font-mono focus:outline-none focus:border-gold-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-ivory-muted">Making Charge (₹/g):</label>
+                  <input
+                    type="number"
+                    value={bulkDefaults.makingCharge}
+                    onChange={(e) =>
+                      setBulkDefaults((prev) => ({
+                        ...prev,
+                        makingCharge: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full bg-obsidian-900 border border-gold-900/60 rounded-xl px-2.5 py-1.5 text-xs text-ivory font-mono focus:outline-none focus:border-gold-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Quick-Grid Spreadsheet Table of Loaded Drafts */}
+            {bulkDrafts.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-ivory flex items-center gap-1.5">
+                    <span>Loaded Batch Items</span>
+                    <span className="px-2 py-0.5 rounded-full bg-gold-500/20 text-gold-300 font-bold font-mono">
+                      {bulkDrafts.length}
+                    </span>
+                  </span>
+                  <span className="text-ivory-muted text-[11px]">
+                    Tip: Edit individual names, weights or charges directly in each row.
+                  </span>
+                </div>
+
+                <div className="rounded-2xl border border-gold-900/60 bg-obsidian-950 overflow-hidden shadow-xl">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-obsidian-900/80 border-b border-gold-900/60 text-gold-400 text-[11px] uppercase tracking-wider">
+                          <th className="py-3 px-3 w-16 text-center">Photo</th>
+                          <th className="py-3 px-3 min-w-[180px]">Design Name (English)</th>
+                          <th className="py-3 px-3 min-w-[140px]">తెలుగు పేరు (Optional)</th>
+                          <th className="py-3 px-3 min-w-[130px]">Category</th>
+                          <th className="py-3 px-3 w-24">Purity</th>
+                          <th className="py-3 px-3 w-28">Weight (g)</th>
+                          <th className="py-3 px-3 w-24">VA %</th>
+                          <th className="py-3 px-3 w-28">Making (₹/g)</th>
+                          <th className="py-3 px-3 w-12 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gold-900/40">
+                        {bulkDrafts.map((draft, idx) => (
+                          <tr key={draft.id} className="hover:bg-obsidian-900/40 transition-colors">
+                            {/* Photo Thumbnail */}
+                            <td className="py-2.5 px-3 text-center">
+                              <div className="w-12 h-12 rounded-xl bg-obsidian-900 border border-gold-900/80 p-1 flex items-center justify-center overflow-hidden mx-auto">
+                                <img
+                                  src={draft.svgContent}
+                                  alt={draft.name}
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                            </td>
+
+                            {/* English Name */}
+                            <td className="py-2.5 px-3">
+                              <input
+                                type="text"
+                                value={draft.name}
+                                onChange={(e) =>
+                                  handleUpdateBulkDraft(idx, { name: e.target.value })
+                                }
+                                className="w-full bg-obsidian-900/90 border border-gold-900/60 rounded-lg px-2 py-1 text-xs text-ivory font-medium focus:outline-none focus:border-gold-400"
+                              />
+                            </td>
+
+                            {/* Telugu Name */}
+                            <td className="py-2.5 px-3">
+                              <input
+                                type="text"
+                                value={draft.teluguName || ""}
+                                placeholder="ఉదా: లక్ష్మీ కాసుల పేరు"
+                                onChange={(e) =>
+                                  handleUpdateBulkDraft(idx, { teluguName: e.target.value })
+                                }
+                                className="w-full bg-obsidian-900/90 border border-gold-900/60 rounded-lg px-2 py-1 text-xs text-gold-200/90 focus:outline-none focus:border-gold-400 placeholder:text-ivory-muted/40"
+                              />
+                            </td>
+
+                            {/* Category */}
+                            <td className="py-2.5 px-3">
+                              <select
+                                value={draft.category}
+                                onChange={(e) =>
+                                  handleUpdateBulkDraft(idx, {
+                                    category: e.target.value as JewelryCategory,
+                                  })
+                                }
+                                className="w-full bg-obsidian-900/90 border border-gold-900/60 rounded-lg px-2 py-1 text-xs text-ivory focus:outline-none focus:border-gold-400"
+                              >
+                                <option value="necklaces">Necklace</option>
+                                <option value="chokers">Choker</option>
+                                <option value="earrings">Earrings</option>
+                                <option value="maang-tikka">Maang Tikka</option>
+                                <option value="bangles">Bangles</option>
+                                <option value="nose-rings">Nose Ring</option>
+                                <option value="vaddanam">Vaddanam</option>
+                              </select>
+                            </td>
+
+                            {/* Purity */}
+                            <td className="py-2.5 px-3">
+                              <select
+                                value={draft.purity}
+                                onChange={(e) =>
+                                  handleUpdateBulkDraft(idx, {
+                                    purity: e.target.value as "22K" | "24K" | "18K",
+                                  })
+                                }
+                                className="w-full bg-obsidian-900/90 border border-gold-900/60 rounded-lg px-2 py-1 text-xs text-ivory font-mono focus:outline-none focus:border-gold-400"
+                              >
+                                <option value="22K">22K 916</option>
+                                <option value="24K">24K 999</option>
+                                <option value="18K">18K 750</option>
+                              </select>
+                            </td>
+
+                            {/* Grams (Default Grams) */}
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  value={draft.defaultGrams}
+                                  title="Default Grams"
+                                  onChange={(e) =>
+                                    handleUpdateBulkDraft(idx, {
+                                      defaultGrams: Number(e.target.value),
+                                      minGrams: Math.min(Number(e.target.value), draft.minGrams),
+                                      maxGrams: Math.max(Number(e.target.value), draft.maxGrams),
+                                    })
+                                  }
+                                  className="w-14 bg-obsidian-900/90 border border-gold-900/60 rounded-lg px-1.5 py-1 text-xs text-ivory font-mono text-center focus:outline-none focus:border-gold-400"
+                                />
+                                <span className="text-[10px] text-ivory-muted">g</span>
+                              </div>
+                            </td>
+
+                            {/* Wastage VA % */}
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  value={draft.wastagePercent}
+                                  onChange={(e) =>
+                                    handleUpdateBulkDraft(idx, {
+                                      wastagePercent: Number(e.target.value),
+                                    })
+                                  }
+                                  className="w-14 bg-obsidian-900/90 border border-gold-900/60 rounded-lg px-1.5 py-1 text-xs text-ivory font-mono text-center focus:outline-none focus:border-gold-400"
+                                />
+                                <span className="text-[10px] text-ivory-muted">%</span>
+                              </div>
+                            </td>
+
+                            {/* Making Charge */}
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-ivory-muted">₹</span>
+                                <input
+                                  type="number"
+                                  value={draft.makingChargePerGram}
+                                  onChange={(e) =>
+                                    handleUpdateBulkDraft(idx, {
+                                      makingChargePerGram: Number(e.target.value),
+                                    })
+                                  }
+                                  className="w-14 bg-obsidian-900/90 border border-gold-900/60 rounded-lg px-1.5 py-1 text-xs text-ivory font-mono text-center focus:outline-none focus:border-gold-400"
+                                />
+                              </div>
+                            </td>
+
+                            {/* Delete */}
+                            <td className="py-2.5 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteBulkDraft(idx)}
+                                className="p-1.5 rounded-lg text-ivory-muted hover:text-ruby-400 hover:bg-ruby-950/40 transition-colors"
+                                title="Remove Draft"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Sticky Action Footer */}
+                <div className="p-4 rounded-2xl bg-obsidian-950/90 border border-gold-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl">
+                  <div className="text-xs text-ivory-muted">
+                    Ready to publish <strong className="text-gold-300 font-mono">{bulkDrafts.length}</strong> items to the active jewelry catalog.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handlePublishAllBatch}
+                    disabled={isPublishing}
+                    className="btn-gold-primary px-6 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-gold-glow"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>{isPublishing ? "Publishing All..." : `Publish All (${bulkDrafts.length}) to Catalog`}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 rounded-2xl bg-obsidian-950/40 border border-gold-900/40 text-center space-y-2">
+                <p className="text-sm text-ivory-muted">No draft items loaded yet.</p>
+                <p className="text-xs text-ivory-muted/70">
+                  Select or drag photos above to populate the batch spreadsheet.
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           /* TAB 1: Step-by-Step Upload Studio Wizard */

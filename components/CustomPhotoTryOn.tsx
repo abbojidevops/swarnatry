@@ -29,6 +29,7 @@ import {
 } from "@/lib/faceStylistEngine";
 import { FamilyVoteModal } from "@/components/FamilyVoteModal";
 import { GoldSchemePlanner } from "@/components/GoldSchemePlanner";
+import { SAREE_DRAPES, SareeDrape } from "@/components/LiveARTryOn";
 import {
   Upload,
   Sparkles,
@@ -54,6 +55,7 @@ import {
   PiggyBank,
   Scale,
   X,
+  Palette,
 } from "lucide-react";
 
 interface CustomPhotoTryOnProps {
@@ -162,6 +164,10 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
   const handleUpdateLayerGrams = (layerId: string, grams: number) => {
     setLayerGramsMap((prev) => ({ ...prev, [layerId]: grams }));
   };
+
+  // Feature C: Saree Drape Contrast Matcher (Phase 7)
+  const [activeSareeDrape, setActiveSareeDrape] = useState<SareeDrape>(SAREE_DRAPES[0]);
+  const [isSareePaletteOpen, setIsSareePaletteOpen] = useState<boolean>(false);
 
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -472,6 +478,49 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
     ctx.clearRect(0, 0, width, height);
     ctx.drawImage(pImg, 0, 0, width, height);
 
+    // Draw Saree / Blouse Drape (Phase 7)
+    if (activeSareeDrape.id !== "none") {
+      ctx.save();
+      const collarY = height * 0.65;
+      const bottomY = height;
+
+      const grad = ctx.createLinearGradient(0, collarY, width, bottomY);
+      grad.addColorStop(0, activeSareeDrape.primary);
+      grad.addColorStop(0.3, activeSareeDrape.sheen);
+      grad.addColorStop(0.7, activeSareeDrape.primary);
+      grad.addColorStop(1, activeSareeDrape.secondary);
+
+      ctx.beginPath();
+      ctx.moveTo(0, bottomY);
+      ctx.lineTo(0, collarY + 35);
+      ctx.quadraticCurveTo(width * 0.25, collarY - 15, width * 0.5, collarY + 45);
+      ctx.quadraticCurveTo(width * 0.75, collarY - 15, width, collarY + 35);
+      ctx.lineTo(width, bottomY);
+      ctx.closePath();
+
+      ctx.fillStyle = grad;
+      ctx.shadowColor = "rgba(0,0,0,0.45)";
+      ctx.shadowBlur = 14;
+      ctx.fill();
+
+      // Royal Gold Zari Border (జరీ అంచు)
+      ctx.lineWidth = 14;
+      const zariGrad = ctx.createLinearGradient(0, collarY, width, collarY);
+      zariGrad.addColorStop(0, "#D4AF37");
+      zariGrad.addColorStop(0.5, "#FFE89E");
+      zariGrad.addColorStop(1, "#AA7A1E");
+      ctx.strokeStyle = zariGrad;
+      ctx.shadowColor = "rgba(212, 175, 55, 0.5)";
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
     // Draw all visible layers from bottom to top
     layers.forEach((layer) => {
       if (!layer.visible) return;
@@ -571,7 +620,7 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
 
       ctx.restore();
     });
-  }, [layers, selectedLayerId]);
+  }, [layers, selectedLayerId, activeSareeDrape]);
 
   useEffect(() => {
     renderMainCanvas();
@@ -932,6 +981,72 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Saree Drape Contrast Matcher (Phase 7) */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsSareePaletteOpen(!isSareePaletteOpen)}
+                  className={`bg-obsidian-850 hover:bg-obsidian-800 text-gold-300 border border-gold-900/60 px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-colors ${
+                    activeSareeDrape.id !== "none" ? "border-gold-400 text-gold-200 bg-gold-950/40" : ""
+                  }`}
+                  title="Saree / Blouse Color Matcher (చీర రంగు మ్యాచింగ్)"
+                >
+                  <Palette className="w-3.5 h-3.5 text-gold-400" />
+                  <span className="hidden sm:inline">Saree Color</span>
+                  {activeSareeDrape.id !== "none" && (
+                    <span
+                      className="w-2.5 h-2.5 rounded-full border border-obsidian-950 shadow-sm"
+                      style={{ backgroundColor: activeSareeDrape.sheen }}
+                    />
+                  )}
+                </button>
+
+                {isSareePaletteOpen && (
+                  <div className="absolute top-full mt-2 right-0 z-30 p-3 bg-obsidian-950/95 border border-gold-500/40 rounded-2xl shadow-2xl backdrop-blur-md w-60 sm:w-64 space-y-2 animate-in fade-in">
+                    <div className="flex items-center justify-between border-b border-gold-900/40 pb-1.5">
+                      <span className="text-[11px] font-bold text-gold-300 uppercase tracking-wider flex items-center gap-1">
+                        <Palette className="w-3.5 h-3.5" />
+                        <span>Kanchipuram Saree Drape</span>
+                      </span>
+                      <button
+                        onClick={() => setIsSareePaletteOpen(false)}
+                        className="text-ivory-muted hover:text-ivory p-0.5"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 text-xs">
+                      {SAREE_DRAPES.map((drape) => (
+                        <button
+                          key={drape.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveSareeDrape(drape);
+                            setIsSareePaletteOpen(false);
+                          }}
+                          className={`p-1.5 rounded-xl border flex items-center gap-2 text-left transition-all ${
+                            activeSareeDrape.id === drape.id
+                              ? "bg-gold-500/20 border-gold-400 text-gold-200"
+                              : "bg-obsidian-900/80 border-gold-900/40 text-ivory-muted hover:border-gold-500/60"
+                          }`}
+                        >
+                          <div
+                            className="w-4 h-4 rounded-full border border-gold-400/50 shrink-0"
+                            style={{
+                              backgroundColor: drape.id === "none" ? "#16161F" : drape.sheen,
+                            }}
+                          />
+                          <span className="truncate text-[10px] font-medium leading-tight">
+                            {drape.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {bridalSlots && (
                 <button
                   onClick={handleAddAllFromBridalCombo}

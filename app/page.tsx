@@ -125,6 +125,7 @@ export default function Home() {
     isLoading: isCatalogLoading,
     syncStatus,
     addOrnament,
+    addOrnamentsBatch,
     deleteOrnament,
     syncAllLocalToCloud,
     exportCatalog,
@@ -782,6 +783,7 @@ export default function Home() {
           setEditingItem(null);
         }}
         onSaveOrnament={addOrnament}
+        onSaveOrnamentsBatch={addOrnamentsBatch}
         onDeleteOrnament={deleteOrnament}
         onExportCatalog={exportCatalog}
         onImportCatalog={importCatalog}

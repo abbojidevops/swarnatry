@@ -55,7 +55,125 @@ import {
   PiggyBank,
   Scale,
   X,
+  Palette,
+  Film,
+  Play,
+  Share2,
 } from "lucide-react";
+
+export interface SareeDrape {
+  id: string;
+  name: string;
+  teluguName: string;
+  colorName: string;
+  primary: string;
+  sheen: string;
+  secondary: string;
+  borderZari: string;
+}
+
+export const SAREE_DRAPES: SareeDrape[] = [
+  {
+    id: "none",
+    name: "Natural / Off",
+    teluguName: "సహజ రంగు",
+    colorName: "None",
+    primary: "transparent",
+    sheen: "transparent",
+    secondary: "transparent",
+    borderZari: "transparent",
+  },
+  {
+    id: "kumkuma",
+    name: "Kumkuma Red",
+    teluguName: "కుంకుమ ఎరుపు",
+    colorName: "Bridal Red",
+    primary: "#991B1B",
+    sheen: "#DC2626",
+    secondary: "#7F1D1D",
+    borderZari: "#D4AF37",
+  },
+  {
+    id: "pacha",
+    name: "Pacha Emerald",
+    teluguName: "పచ్చ (మరకతం)",
+    colorName: "Emerald Green",
+    primary: "#065F46",
+    sheen: "#059669",
+    secondary: "#022C22",
+    borderZari: "#D4AF37",
+  },
+  {
+    id: "rani",
+    name: "Rani Pink",
+    teluguName: "రాణి గులాబీ",
+    colorName: "Magenta Pink",
+    primary: "#9D174D",
+    sheen: "#DB2777",
+    secondary: "#700B33",
+    borderZari: "#D4AF37",
+  },
+  {
+    id: "haldi",
+    name: "Haldi Yellow",
+    teluguName: "పసుపు / హల్దీ",
+    colorName: "Golden Mustard",
+    primary: "#B45309",
+    sheen: "#F59E0B",
+    secondary: "#78350F",
+    borderZari: "#FFE89E",
+  },
+  {
+    id: "neelam",
+    name: "Neelam Royal Blue",
+    teluguName: "నీలం / రాయల్ బ్లూ",
+    colorName: "Royal Blue",
+    primary: "#1E3A8A",
+    sheen: "#2563EB",
+    secondary: "#172554",
+    borderZari: "#D4AF37",
+  },
+  {
+    id: "kasavu",
+    name: "Kerala Kasavu Ivory",
+    teluguName: "కసవు తెల్లపట్టు",
+    colorName: "Ivory Cream",
+    primary: "#FDFBF7",
+    sheen: "#FFFBEB",
+    secondary: "#E2D9C8",
+    borderZari: "#D4AF37",
+  },
+];
+
+function playRoyalChime(type: "start" | "finish") {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === "start") {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } else {
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.6);
+    }
+  } catch (e) {}
+}
 
 interface LiveARTryOnProps {
   initialItem?: JewelryItem;
@@ -165,6 +283,32 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
   // Phase 6 Modals: Family Poll & Gold Scheme Planner
   const [isFamilyVoteOpen, setIsFamilyVoteOpen] = useState<boolean>(false);
   const [isSchemePlannerOpen, setIsSchemePlannerOpen] = useState<boolean>(false);
+
+  // Feature C: Saree Drape Contrast Matcher (Phase 7)
+  const [activeSareeDrape, setActiveSareeDrape] = useState<SareeDrape>(SAREE_DRAPES[0]);
+  const [isSareePaletteOpen, setIsSareePaletteOpen] = useState<boolean>(false);
+
+  // Feature B: 5-Second Bridal Reel Recorder (Phase 7)
+  const [isRecordingReel, setIsRecordingReel] = useState<boolean>(false);
+  const [reelCountdown, setReelCountdown] = useState<number>(5);
+  const [recordedReelUrl, setRecordedReelUrl] = useState<string | null>(null);
+  const [isReelModalOpen, setIsReelModalOpen] = useState<boolean>(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const reelIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup Reel recording resources on unmount
+  useEffect(() => {
+    return () => {
+      if (reelIntervalRef.current) clearInterval(reelIntervalRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+      if (recordedReelUrl) {
+        URL.revokeObjectURL(recordedReelUrl);
+      }
+    };
+  }, [recordedReelUrl]);
 
   // Sync selectedGrams when selectedItem changes
   useEffect(() => {
@@ -394,6 +538,10 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
     }
 
     if (anchors) {
+      if (activeSareeDrape.id !== "none") {
+        drawSareeDrape(ctx, width, height, anchors, activeSareeDrape);
+      }
+
       if (isComboMode && bridalSlots) {
         drawBridalComboSet(ctx, width, height, anchors);
       } else {
@@ -425,6 +573,7 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
     slotOverrides,
     isLiteMode,
     selectedGrams,
+    activeSareeDrape,
   ]);
 
   useEffect(() => {
@@ -435,6 +584,63 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
       }
     };
   }, [renderLoop]);
+
+  // Feature C: Render Kanchipuram Saree / Blouse Drape on Shoulders (Phase 7)
+  const drawSareeDrape = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    anchors: FaceAnchors,
+    drapeColor: SareeDrape
+  ) => {
+    if (drapeColor.id === "none") return;
+    const neckX = anchors.neck.x * width;
+    const neckY = anchors.neck.y * height;
+    const faceW = anchors.faceWidth * width;
+
+    ctx.save();
+    const shoulderWidth = Math.max(faceW * 2.8, width * 0.75);
+    const leftShoulderX = neckX - shoulderWidth / 2;
+    const rightShoulderX = neckX + shoulderWidth / 2;
+    const collarY = neckY + faceW * 0.22;
+    const bottomY = height;
+
+    const grad = ctx.createLinearGradient(leftShoulderX, collarY, rightShoulderX, bottomY);
+    grad.addColorStop(0, drapeColor.primary);
+    grad.addColorStop(0.3, drapeColor.sheen);
+    grad.addColorStop(0.7, drapeColor.primary);
+    grad.addColorStop(1, drapeColor.secondary);
+
+    ctx.beginPath();
+    ctx.moveTo(leftShoulderX, bottomY);
+    ctx.lineTo(leftShoulderX, collarY + faceW * 0.45);
+    ctx.quadraticCurveTo(neckX - faceW * 0.55, collarY, neckX, collarY + faceW * 0.32);
+    ctx.quadraticCurveTo(neckX + faceW * 0.55, collarY, rightShoulderX, collarY + faceW * 0.45);
+    ctx.lineTo(rightShoulderX, bottomY);
+    ctx.closePath();
+
+    ctx.fillStyle = grad;
+    ctx.shadowColor = "rgba(0,0,0,0.45)";
+    ctx.shadowBlur = 12;
+    ctx.fill();
+
+    // Royal Gold Zari Border (జరీ అంచు)
+    ctx.lineWidth = Math.max(faceW * 0.08, 6);
+    const zariGrad = ctx.createLinearGradient(leftShoulderX, collarY, rightShoulderX, collarY);
+    zariGrad.addColorStop(0, "#D4AF37");
+    zariGrad.addColorStop(0.5, "#FFE89E");
+    zariGrad.addColorStop(1, "#AA7A1E");
+    ctx.strokeStyle = zariGrad;
+    ctx.shadowColor = "rgba(212, 175, 55, 0.5)";
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.stroke();
+
+    ctx.restore();
+  };
 
   // Apply Gold Tone / Warmth Filter
   const applyGoldToneFilter = (ctx: CanvasRenderingContext2D) => {
@@ -792,6 +998,156 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
     document.body.removeChild(link);
   };
 
+  // Feature B: 5-Second Live AR Bridal Video Reel Recorder (Phase 7)
+  const startRecordingReel = () => {
+    const video = webcamRef.current?.video;
+    const overlayCanvas = canvasRef.current;
+    if (!video || !overlayCanvas || isRecordingReel) return;
+
+    playRoyalChime("start");
+    setIsRecordingReel(true);
+    setReelCountdown(5);
+    recordedChunksRef.current = [];
+
+    const compCanvas = document.createElement("canvas");
+    compCanvas.width = video.videoWidth || 720;
+    compCanvas.height = video.videoHeight || 1280;
+    const cCtx = compCanvas.getContext("2d");
+    if (!cCtx) return;
+
+    let compAnimId: number;
+    const drawCompositeFrame = () => {
+      if (!video.paused && !video.ended) {
+        if (facingMode === "user") {
+          cCtx.save();
+          cCtx.translate(compCanvas.width, 0);
+          cCtx.scale(-1, 1);
+          cCtx.drawImage(video, 0, 0, compCanvas.width, compCanvas.height);
+          cCtx.drawImage(overlayCanvas, 0, 0, compCanvas.width, compCanvas.height);
+          cCtx.restore();
+        } else {
+          cCtx.drawImage(video, 0, 0, compCanvas.width, compCanvas.height);
+          cCtx.drawImage(overlayCanvas, 0, 0, compCanvas.width, compCanvas.height);
+        }
+
+        // Royal Gold Watermark for Reels
+        cCtx.save();
+        cCtx.fillStyle = "rgba(11, 11, 14, 0.75)";
+        cCtx.fillRect(20, compCanvas.height - 80, 360, 60);
+        cCtx.strokeStyle = "#D4AF37";
+        cCtx.lineWidth = 1.5;
+        cCtx.strokeRect(20, compCanvas.height - 80, 360, 60);
+
+        cCtx.fillStyle = "#FFE89E";
+        cCtx.font = "bold 16px 'Cinzel', serif";
+        cCtx.fillText("SWARNATRY • AI BRIDAL REEL", 36, compCanvas.height - 48);
+
+        cCtx.font = "12px 'Plus Jakarta Sans', sans-serif";
+        cCtx.fillStyle = "#FAF8F5";
+        cCtx.fillText(
+          isComboMode ? "Full Bridal Set • 22K 916 BIS" : `${selectedItem.name} • 22K 916 BIS`,
+          36,
+          compCanvas.height - 28
+        );
+        cCtx.restore();
+      }
+      compAnimId = requestAnimationFrame(drawCompositeFrame);
+    };
+    compAnimId = requestAnimationFrame(drawCompositeFrame);
+
+    let mimeType = "video/webm";
+    if (typeof MediaRecorder !== "undefined") {
+      if (MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")) {
+        mimeType = "video/mp4;codecs=avc1";
+      } else if (MediaRecorder.isTypeSupported("video/mp4")) {
+        mimeType = "video/mp4";
+      } else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) {
+        mimeType = "video/webm;codecs=vp9";
+      }
+    }
+
+    try {
+      const stream = (compCanvas as any).captureStream ? (compCanvas as any).captureStream(30) : null;
+      if (!stream) {
+        cancelAnimationFrame(compAnimId);
+        setIsRecordingReel(false);
+        return;
+      }
+      const mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2500000 });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        cancelAnimationFrame(compAnimId);
+        playRoyalChime("finish");
+        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        setRecordedReelUrl(url);
+        setIsRecordingReel(false);
+        setIsReelModalOpen(true);
+      };
+
+      mediaRecorder.start(100);
+
+      let secondsLeft = 5;
+      const interval = setInterval(() => {
+        secondsLeft -= 1;
+        setReelCountdown(secondsLeft);
+        if (secondsLeft <= 0) {
+          clearInterval(interval);
+          if (mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+          }
+        }
+      }, 1000);
+      reelIntervalRef.current = interval;
+    } catch (err) {
+      console.warn("MediaRecorder failed to start:", err);
+      cancelAnimationFrame(compAnimId);
+      setIsRecordingReel(false);
+    }
+  };
+
+  const handleDownloadReel = () => {
+    if (!recordedReelUrl) return;
+    const a = document.createElement("a");
+    a.href = recordedReelUrl;
+    a.download = `SwarnaTry-Bridal-Reel-${selectedItem.id}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleShareReel = async () => {
+    if (!recordedReelUrl) return;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        const response = await fetch(recordedReelUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `SwarnaTry-${selectedItem.id}-Reel.webm`, { type: blob.type });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: `My 22K Gold Try-On: ${selectedItem.name}`,
+            text: `Look at this 22K gold ${selectedItem.name} on me via SwarnaTry!`,
+            files: [file],
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn("Native share error, falling back to WhatsApp link:", err);
+      }
+    }
+    const msg = encodeURIComponent(
+      `✨ Check out my 22K Gold ${selectedItem.name} Live AR Try-On on SwarnaTry!\n📍 Showroom: ${showroomName}\n⚖️ Grams: ${selectedGrams}g\n\nTry it yourself: ${typeof window !== "undefined" ? window.location.origin : ""}/?tryon=${selectedItem.id}`
+    );
+    window.open(`https://api.whatsapp.com/send?text=${msg}`, "_blank");
+  };
+
   // Carousel item click handler
   const handleCarouselItemClick = (item: JewelryItem) => {
     if (isComboMode && onEquipSlot && bridalSlots) {
@@ -889,6 +1245,74 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Saree Drape Contrast Matcher (Phase 7) */}
+          <div className="relative">
+            <button
+              onClick={() => setIsSareePaletteOpen(!isSareePaletteOpen)}
+              className={`px-3 py-1.5 rounded-xl backdrop-blur-md border transition-all flex items-center gap-1.5 text-xs font-semibold ${
+                activeSareeDrape.id !== "none"
+                  ? "bg-gold-500 text-obsidian-950 border-gold-400 shadow-gold-glow"
+                  : "bg-obsidian-950/80 text-gold-300 border-gold-900/80 hover:bg-obsidian-800"
+              }`}
+              title="Saree / Blouse Color Matcher (చీర రంగు మ్యాచింగ్)"
+            >
+              <Palette className="w-4 h-4" />
+              <span className="hidden sm:inline">{isTe ? "చీర రంగు" : "Saree Drape"}</span>
+              {activeSareeDrape.id !== "none" && (
+                <span
+                  className="w-2.5 h-2.5 rounded-full border border-obsidian-950 shadow-sm"
+                  style={{ backgroundColor: activeSareeDrape.sheen }}
+                />
+              )}
+            </button>
+
+            {/* Saree Palette Popover */}
+            {isSareePaletteOpen && (
+              <div className="absolute top-full mt-2 right-0 z-30 p-3 bg-obsidian-950/95 border border-gold-500/40 rounded-2xl shadow-2xl backdrop-blur-md w-60 sm:w-64 space-y-2 animate-in fade-in">
+                <div className="flex items-center justify-between border-b border-gold-900/40 pb-1.5">
+                  <span className="text-[11px] font-bold text-gold-300 uppercase tracking-wider flex items-center gap-1">
+                    <Palette className="w-3.5 h-3.5" />
+                    <span>{isTe ? "పట్టుచీర రంగు ఎంచుకోండి" : "Kanchipuram Saree Drape"}</span>
+                  </span>
+                  <button
+                    onClick={() => setIsSareePaletteOpen(false)}
+                    className="text-ivory-muted hover:text-ivory p-0.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  {SAREE_DRAPES.map((drape) => (
+                    <button
+                      key={drape.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveSareeDrape(drape);
+                        setIsSareePaletteOpen(false);
+                      }}
+                      className={`p-1.5 rounded-xl border flex items-center gap-2 text-left transition-all ${
+                        activeSareeDrape.id === drape.id
+                          ? "bg-gold-500/20 border-gold-400 text-gold-200"
+                          : "bg-obsidian-900/80 border-gold-900/40 text-ivory-muted hover:border-gold-500/60"
+                      }`}
+                    >
+                      <div
+                        className="w-4 h-4 rounded-full border border-gold-400/50 shrink-0"
+                        style={{
+                          backgroundColor: drape.id === "none" ? "#16161F" : drape.sheen,
+                        }}
+                      />
+                      <span className="truncate text-[10px] font-medium leading-tight">
+                        {isTe ? drape.teluguName : drape.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => setShowControls(!showControls)}
             className={`px-3 py-1.5 rounded-xl backdrop-blur-md border transition-all flex items-center gap-1.5 text-xs font-semibold ${
@@ -1195,10 +1619,38 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
           </div>
         )}
 
-        {/* Floating Snapshot Trigger Button */}
+        {/* 5s Reel Recording Countdown Banner (Phase 7) */}
+        {isRecordingReel && (
+          <div className="absolute top-16 inset-x-0 flex justify-center z-30 pointer-events-none">
+            <div className="px-5 py-2.5 rounded-full bg-ruby-950/95 border-2 border-ruby-500 text-white text-xs font-bold flex items-center gap-3 shadow-2xl animate-pulse">
+              <span className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
+              <span>🎥 {isTe ? `రీల్ రికార్డింగ్: ${reelCountdown} సెకన్లు...` : `Recording 5s Reel: ${reelCountdown}s...`}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Floating Controls Bar: Snapshot & 5s Video Reel */}
         <div className="absolute bottom-4 inset-x-0 flex items-center justify-center gap-4 z-20 pointer-events-auto">
+          {/* 5-Second Video Reel Record Button */}
+          <button
+            onClick={startRecordingReel}
+            disabled={isRecordingReel}
+            className={`group relative p-1 rounded-full transition-all ${
+              isRecordingReel
+                ? "bg-red-500 animate-pulse shadow-lg scale-110"
+                : "bg-gradient-to-tr from-ruby-600 via-rose-500 to-amber-400 shadow-gold-glow hover:scale-105"
+            }`}
+            title="Record 5-Second Bridal Reel (రీల్ వీడియో రికార్డ్)"
+          >
+            <div className="p-3.5 sm:p-4 rounded-full bg-obsidian-950 group-hover:bg-obsidian-900 transition-colors flex items-center justify-center text-rose-400">
+              <Film className="w-6 h-6" />
+            </div>
+          </button>
+
+          {/* High-Res Snapshot Button */}
           <button
             onClick={handleTakeSnapshot}
+            disabled={isRecordingReel}
             className="group relative p-1 rounded-full bg-gradient-to-tr from-gold-600 via-gold-400 to-gold-200 shadow-gold-glow hover:scale-105 transition-all"
             title="Take High-Res Try-On Snapshot"
           >
@@ -1499,6 +1951,81 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
                 className="py-2.5 px-4 rounded-xl bg-obsidian-800 text-ivory hover:bg-obsidian-700 text-xs border border-gold-900/60"
               >
                 Retake
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5-Second Bridal Reel Video Modal (Phase 7) */}
+      {isReelModalOpen && recordedReelUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+          <div className="relative w-full max-w-md bg-obsidian-900 border border-gold-500/50 rounded-3xl p-5 shadow-gold-glow-lg space-y-4 text-ivory">
+            <div className="flex items-center justify-between border-b border-gold-900/60 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-ruby-950/80 border border-ruby-500/40 text-rose-400">
+                  <Film className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-cinzel text-base font-bold text-ivory">
+                    {isTe ? "బ్రిడల్ రీల్ వీడియో రెడీ!" : "5s Bridal AR Video Reel"}
+                  </h3>
+                  <p className="text-[11px] text-gold-300">
+                    {isComboMode ? "Full Bridal Set • 22K 916 BIS" : `${selectedItem.name} • 22K 916`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsReelModalOpen(false)}
+                className="text-ivory-muted hover:text-ivory p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Video Player */}
+            <div className="relative rounded-2xl overflow-hidden border border-gold-900/60 bg-black aspect-[9/16] max-h-[50vh] mx-auto flex items-center justify-center">
+              <video
+                src={recordedReelUrl}
+                autoPlay
+                loop
+                playsInline
+                controls
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-1">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadReel}
+                  className="btn-gold-primary py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-gold-glow"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Video</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleShareReel}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-sm"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Share on WhatsApp</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsReelModalOpen(false);
+                  startRecordingReel();
+                }}
+                className="w-full py-2 rounded-xl bg-obsidian-950 text-ivory-muted hover:text-gold-300 text-xs border border-gold-900/60 transition-colors"
+              >
+                Retake 5-Second Reel
               </button>
             </div>
           </div>

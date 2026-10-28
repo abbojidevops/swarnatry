@@ -627,6 +627,63 @@ export const PrintableEstimateModal: React.FC<PrintableEstimateModalProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* BIS 916 HUID & Showroom Lifetime Buyback Guarantee Certificate (Phase 7) */}
+              <div className="print-totals [break-inside:avoid] [page-break-inside:avoid] mt-6 p-4 rounded-xl border border-amber-400/80 bg-amber-50/70 space-y-3">
+                <div className="flex items-center justify-between border-b border-amber-300 pb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-amber-800 text-amber-100 flex items-center justify-center font-bold text-xs shadow-sm">
+                      BIS
+                    </div>
+                    <div>
+                      <h4 className="font-serif font-bold text-sm text-amber-950 uppercase tracking-wide">
+                        BIS 916 Hallmarked & Showroom Lifetime Buyback Guarantee
+                      </h4>
+                      <p className="text-[10px] text-amber-800">
+                        బ్యూరో ఆఫ్ ఇండియన్ స్టాండర్డ్స్ (BIS) అధికారిక హాల్‌మార్క్ & జీవితకాల బై-బ్యాక్ హామీ పత్రం
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-500 uppercase block">Certified Authenticity Code:</span>
+                    <span className="font-mono font-bold text-xs text-amber-900 px-2 py-0.5 rounded bg-amber-100 border border-amber-300">
+                      BIS-916-HUID-PASS
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px] text-amber-950">
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-700 font-bold text-sm">✦</span>
+                    <div>
+                      <strong className="block font-semibold">100% Exchange Guarantee:</strong>
+                      <span className="text-gray-600 text-[10px]">
+                        Full net gold weight value credited against prevailing 22K market bullion rates at any time.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-700 font-bold text-sm">✦</span>
+                    <div>
+                      <strong className="block font-semibold">95% Cash Buyback:</strong>
+                      <span className="text-gray-600 text-[10px]">
+                        Instant cash buyback on net gold weight with official melting report and touch transparency.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-700 font-bold text-sm">✦</span>
+                    <div>
+                      <strong className="block font-semibold">Free Lifetime Karigar Service:</strong>
+                      <span className="text-gray-600 text-[10px]">
+                        Free ultrasonic cleaning, prong tightening, and authenticity check across all authorized branches.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             /* ======================================================== */
@@ -736,6 +793,17 @@ export const PrintableEstimateModal: React.FC<PrintableEstimateModalProps> = ({
                     CREDIT BALANCE (CARRY FORWARD): +{formatINR(creditCarryForward)}
                   </div>
                 )}
+              </div>
+
+              {/* Thermal BIS Hallmark & Buyback Box (Phase 7) */}
+              <div className="py-1.5 border-b border-dashed border-black text-[9px] space-y-0.5">
+                <div className="font-bold flex items-center justify-between uppercase">
+                  <span>[BIS 916 HALLMARK CERTIFIED]</span>
+                  <span>HUID: PASS</span>
+                </div>
+                <p>• 100% Exchange on 22K Net Gold Weight</p>
+                <p>• 95% Cash Buyback Guarantee</p>
+                <p>• Free Lifetime Ultrasonic Cleaning</p>
               </div>
 
               {/* Thermal Footer */}

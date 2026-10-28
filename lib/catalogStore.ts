@@ -122,6 +122,50 @@ export async function saveOrnamentToLocalStore(
 }
 
 /**
+ * Save multiple custom ornaments in batch to IndexedDB & localStorage
+ */
+export async function saveOrnamentsBatchToLocalStore(
+  items: JewelryItem[]
+): Promise<boolean> {
+  if (!items || items.length === 0) return true;
+  const db = await openDB();
+
+  try {
+    const existing = await getCustomOrnaments();
+    const itemIds = new Set(items.map((i) => i.id));
+    const filtered = existing.filter((i) => !itemIds.has(i.id));
+    const updated = [...items, ...filtered];
+    try {
+      localStorage.setItem(LOCAL_STORAGE_BACKUP_KEY, JSON.stringify(updated));
+    } catch (e) {}
+  } catch (err) {}
+
+  if (!db) {
+    notifyCatalogChange();
+    return true;
+  }
+
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      items.forEach((item) => store.put(item));
+      tx.oncomplete = () => {
+        notifyCatalogChange();
+        resolve(true);
+      };
+      tx.onerror = () => {
+        notifyCatalogChange();
+        resolve(false);
+      };
+    } catch {
+      notifyCatalogChange();
+      resolve(false);
+    }
+  });
+}
+
+/**
  * Delete an ornament from local store
  */
 export async function deleteOrnamentFromLocalStore(
@@ -446,6 +490,31 @@ export function useJewelryCatalog() {
     await refreshCatalog();
   };
 
+  const addOrnamentsBatch = async (items: JewelryItem[]) => {
+    const marked = items.map((item) => ({
+      ...item,
+      isCustom: true,
+      createdAt: item.createdAt || new Date().toISOString(),
+    }));
+
+    await saveOrnamentsBatchToLocalStore(marked);
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        setSyncStatus("syncing");
+        await Promise.all(
+          marked.map((m) => client.from("ornaments").upsert(itemToSupabaseRow(m)))
+        );
+        setSyncStatus("synced");
+      } catch (e) {
+        console.warn("Could not save batch to Supabase, saved locally:", e);
+      }
+    }
+
+    await refreshCatalog();
+  };
+
   const updateOrnament = async (
     id: string,
     updatedProps: Partial<JewelryItem>
@@ -499,6 +568,7 @@ export function useJewelryCatalog() {
     isLoading,
     syncStatus,
     addOrnament,
+    addOrnamentsBatch,
     updateOrnament,
     deleteOrnament,
     syncAllLocalToCloud,
