@@ -25,10 +25,12 @@ import {
   Coins,
   Printer,
   ClipboardList,
+  PiggyBank,
 } from "lucide-react";
 import { JewelryItem, getJewelryImageUri } from "@/data/mockJewelryCatalog";
 import { formatINR, OldGoldItem, calculateOldGoldExchange } from "@/lib/goldMath";
 import { OldGoldExchangePanel } from "@/components/OldGoldExchangePanel";
+import { GoldSchemePlanner } from "@/components/GoldSchemePlanner";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   BridalComboSlots,
@@ -82,7 +84,7 @@ export const BridalComboDrawer: React.FC<BridalComboDrawerProps> = ({
   onOpenPrintEstimate,
   onBookOrder,
 }) => {
-  const [activeTab, setActiveTab] = useState<"slots" | "presets" | "budget" | "exchange">("slots");
+  const [activeTab, setActiveTab] = useState<"slots" | "presets" | "budget" | "exchange" | "scheme">("slots");
   const { language, setLanguage, toggleLanguage, isTe } = useLanguage();
   const [targetBudget, setTargetBudget] = useState<number>(0);
   const [copiedQuote, setCopiedQuote] = useState<boolean>(false);
@@ -309,6 +311,17 @@ export const BridalComboDrawer: React.FC<BridalComboDrawerProps> = ({
             {oldGoldItems.length > 0 && (
               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab("scheme")}
+            className={`flex-1 py-3 text-center transition-colors flex items-center justify-center gap-1.5 border-b-2 ${
+              activeTab === "scheme"
+                ? "border-gold-500 text-gold-300 font-semibold bg-gold-950/20"
+                : "border-transparent text-ivory-muted hover:text-ivory"
+            }`}
+          >
+            <PiggyBank className="w-3.5 h-3.5" />
+            <span>{isTe ? "11+1 స్కీమ్" : "11+1 Scheme"}</span>
           </button>
         </div>
 
@@ -563,6 +576,18 @@ export const BridalComboDrawer: React.FC<BridalComboDrawerProps> = ({
                 exchangeItems={oldGoldItems}
                 onChangeItems={setOldGoldItems}
                 language={language}
+              />
+            </div>
+          )}
+
+          {/* TAB 5: GOLD SAVINGS SCHEME (Phase 6) */}
+          {activeTab === "scheme" && (
+            <div className="space-y-3">
+              <GoldSchemePlanner
+                targetGrams={Math.round(calc.totalNetGrams) || 60}
+                goldRate22K={goldRate22K}
+                showroomName={isTe ? "శ్రీ కృష్ణ జ్యువెలర్స్" : "Sri Krishna Jewellers"}
+                onEnroll={() => setActiveTab("slots")}
               />
             </div>
           )}

@@ -13,7 +13,7 @@ import {
   createComparisonCard,
   createBridalSetLookbookCard,
 } from "@/lib/imageProcessing";
-import { formatINR } from "@/lib/goldMath";
+import { formatINR, calculateGoldPrice } from "@/lib/goldMath";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   BridalComboSlots,
@@ -27,6 +27,8 @@ import {
   calculateSuitability,
   FaceShape,
 } from "@/lib/faceStylistEngine";
+import { FamilyVoteModal } from "@/components/FamilyVoteModal";
+import { GoldSchemePlanner } from "@/components/GoldSchemePlanner";
 import {
   Upload,
   Sparkles,
@@ -48,6 +50,10 @@ import {
   Plus,
   Compass,
   Check,
+  Users,
+  PiggyBank,
+  Scale,
+  X,
 } from "lucide-react";
 
 interface CustomPhotoTryOnProps {
@@ -101,6 +107,7 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
   onOpenBridalDrawer,
   onEquipSlot,
 }) => {
+  const { isTe } = useLanguage();
   // Step 1: Portrait Image State
   const [portraitSrc, setPortraitSrc] = useState<string>(
     SAMPLE_PORTRAITS[0].url
@@ -141,6 +148,20 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
   const activeSuitability = activeOrnament
     ? calculateSuitability(activeOrnament, currentFaceAnalysis)
     : null;
+
+  // Dynamic Gram Morphing & Modals State (Phase 6)
+  const [layerGramsMap, setLayerGramsMap] = useState<Record<string, number>>({});
+  const [isFamilyVoteOpen, setIsFamilyVoteOpen] = useState<boolean>(false);
+  const [isSchemePlannerOpen, setIsSchemePlannerOpen] = useState<boolean>(false);
+
+  const getLayerGrams = (layer: PhotoLayer): number => {
+    if (layerGramsMap[layer.id]) return layerGramsMap[layer.id];
+    return layer.item ? layer.item.defaultGrams : 36;
+  };
+
+  const handleUpdateLayerGrams = (layerId: string, grams: number) => {
+    setLayerGramsMap((prev) => ({ ...prev, [layerId]: grams }));
+  };
 
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -484,8 +505,24 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
         (img as HTMLImageElement).naturalHeight ||
         300;
 
-      const baseW = 280 * layer.scale;
-      const baseH = (baseW / imgW) * imgH;
+      let baseW = 280 * layer.scale;
+      let baseH = (baseW / imgW) * imgH;
+
+      // Dynamic Gram-to-Thickness Morphing (Phase 6)
+      if (layer.item) {
+        const itemG = getLayerGrams(layer);
+        const minG = layer.item.minGrams || 20;
+        const maxG = layer.item.maxGrams || 80;
+        const morphT = Math.max(0, Math.min(1, (itemG - minG) / Math.max(1, maxG - minG)));
+        const morphW = 0.88 + 0.24 * morphT;
+        const morphH = 0.94 + 0.10 * morphT;
+        baseW = baseW * morphW;
+        baseH = baseH * (morphH / morphW);
+
+        // Enhance metallic depth & shadow with weight
+        ctx.shadowColor = `rgba(0, 0, 0, ${layer.shadowOpacity * (0.8 + 0.4 * morphT)})`;
+        ctx.shadowBlur = layer.shadowBlur * (0.8 + 0.5 * morphT);
+      }
 
       // 3D Neck Curve & Yaw Perspective Warping
       if (
@@ -591,8 +628,20 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
         (img as HTMLImageElement).naturalHeight ||
         300;
 
-      const baseW = 280 * layer.scale;
-      const baseH = (baseW / imgW) * imgH;
+      let baseW = 280 * layer.scale;
+      let baseH = (baseW / imgW) * imgH;
+
+      // Dynamic Gram-to-Thickness Morphing (Phase 6)
+      if (layer.item) {
+        const itemG = getLayerGrams(layer);
+        const minG = layer.item.minGrams || 20;
+        const maxG = layer.item.maxGrams || 80;
+        const morphT = Math.max(0, Math.min(1, (itemG - minG) / Math.max(1, maxG - minG)));
+        const morphW = 0.88 + 0.24 * morphT;
+        const morphH = 0.94 + 0.10 * morphT;
+        baseW = baseW * morphW;
+        baseH = baseH * (morphH / morphW);
+      }
 
       // Simple radial distance or bounding box hit test
       const dx = x - layer.x;
@@ -1222,17 +1271,81 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
                 </div>
               </div>
 
-              {/* Price Estimation Quick Button for active layer item */}
-              {selectedLayer.item && (
-                <div className="pt-2">
-                  <button
-                    onClick={() => onOpenCalculator(selectedLayer.item!)}
-                    className="w-full bg-obsidian-950 hover:bg-gold-950/40 text-gold-300 py-2 px-3 rounded-xl border border-gold-900/60 text-xs font-medium flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <span>Calculate Goldsmith Price for {selectedLayer.item.name}</span>
-                  </button>
-                </div>
-              )}
+              {/* Dynamic Gram Morphing & Realtime Price for active layer (Phase 6) */}
+              {selectedLayer.item && (() => {
+                const item = selectedLayer.item;
+                const currG = getLayerGrams(selectedLayer);
+                const minG = item.minGrams || 20;
+                const maxG = item.maxGrams || 80;
+                const morphT = Math.max(0, Math.min(1, (currG - minG) / Math.max(1, maxG - minG)));
+                const price = calculateGoldPrice(currG, item.purity, {
+                  goldRate22K,
+                  wastagePercent: item.wastagePercent,
+                  makingChargePerGram: item.makingChargePerGram,
+                  stoneWeightGrams: item.stoneWeightGrams || 0,
+                  stoneCostFlat: item.stoneCostFlat || 0,
+                }).totalEstimatedPrice;
+
+                const note =
+                  morphT < 0.35
+                    ? { en: `${currG}g: Sleek Lightweight Sheet Work`, te: `${currG}g: లైట్ వెయిట్ రేకు పని` }
+                    : morphT < 0.70
+                    ? { en: `${currG}g: Standard Handcrafted Casting`, te: `${currG}g: మధ్యస్థ ఘన చేతిపని` }
+                    : { en: `${currG}g: Solid Heavyweight Nakshi Casting`, te: `${currG}g: భారీ గట్టి నక్షి పని` };
+
+                return (
+                  <div className="pt-2 space-y-2 border-t border-gold-900/40">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-ivory-muted">Weight &amp; Thickness:</span>
+                      <span className="font-mono font-bold text-gold-300">
+                        {currG}g • {formatINR(price)}
+                      </span>
+                    </div>
+
+                    <div className="p-1.5 rounded-lg bg-gold-950/30 border border-gold-500/30 text-[10px] text-gold-200">
+                      <span>{isTe ? note.te : note.en}</span>
+                    </div>
+
+                    <input
+                      type="range"
+                      min={minG}
+                      max={maxG}
+                      step={1}
+                      value={currG}
+                      onChange={(e) => handleUpdateLayerGrams(selectedLayer.id, Number(e.target.value))}
+                      className="w-full h-1.5 bg-obsidian-950 rounded-lg appearance-none cursor-pointer accent-gold-500"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setIsFamilyVoteOpen(true)}
+                        className="py-1.5 px-2 rounded-xl bg-obsidian-950 hover:bg-gold-950/40 text-gold-300 border border-gold-900/60 font-medium flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Users className="w-3.5 h-3.5 text-gold-400" />
+                        <span>{isTe ? "కుటుంబ ఓటు" : "Ask Family"}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsSchemePlannerOpen(true)}
+                        className="py-1.5 px-2 rounded-xl bg-obsidian-950 hover:bg-gold-950/40 text-gold-300 border border-gold-900/60 font-medium flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <PiggyBank className="w-3.5 h-3.5 text-gold-400" />
+                        <span>{isTe ? "11+1 స్కీమ్" : "Gold Scheme"}</span>
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => onOpenCalculator(item)}
+                      className="w-full bg-obsidian-950 hover:bg-gold-950/40 text-gold-300 py-2 px-3 rounded-xl border border-gold-900/60 text-xs font-medium flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <span>Full Goldsmith Breakdown for {item.name}</span>
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             <div className="bg-obsidian-900 border border-gold-900/40 rounded-3xl p-6 text-center text-xs text-ivory-muted">
@@ -1270,6 +1383,54 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Feature C: Ask Family Poll Modal (Phase 6) */}
+      {isFamilyVoteOpen && (
+        <FamilyVoteModal
+          isOpen={isFamilyVoteOpen}
+          onClose={() => setIsFamilyVoteOpen(false)}
+          optionA={{
+            id: selectedLayer?.item?.id || initialItem?.id || catalog[0].id,
+            name: selectedLayer?.item?.name || initialItem?.name || catalog[0].name,
+            grams: selectedLayer?.item ? getLayerGrams(selectedLayer) : (initialItem?.defaultGrams || 36),
+            price: Math.round(
+              (selectedLayer?.item ? getLayerGrams(selectedLayer) : (initialItem?.defaultGrams || 36)) *
+                goldRate22K *
+                1.15
+            ),
+            imageSrc: selectedLayer?.item ? getJewelryImageUri(selectedLayer.item) : undefined,
+          }}
+          optionB={{
+            id: catalog[1]?.id || "SW-HRM-104",
+            name: catalog[1]?.name || "Heritage Lakshmi Kasu Haram",
+            grams: catalog[1]?.defaultGrams || 56,
+            price: Math.round((catalog[1]?.defaultGrams || 56) * goldRate22K * 1.15),
+            imageSrc: getJewelryImageUri(catalog[1] || catalog[0]),
+          }}
+          showroomName={showroomName}
+        />
+      )}
+
+      {/* Feature B: Gold Scheme Planner Modal (Phase 6) */}
+      {isSchemePlannerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-obsidian-950/85 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-lg bg-obsidian-900 border border-gold-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl text-ivory max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsSchemePlannerOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-obsidian-950/60 hover:bg-obsidian-800 text-ivory-muted hover:text-ivory transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <GoldSchemePlanner
+              item={selectedLayer?.item || initialItem || catalog[0]}
+              targetGrams={selectedLayer?.item ? getLayerGrams(selectedLayer) : 40}
+              goldRate22K={goldRate22K}
+              showroomName={showroomName}
+              onEnroll={() => setIsSchemePlannerOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

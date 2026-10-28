@@ -89,8 +89,8 @@ function DeepLinkHandler({
       });
     }
 
-    // 2. Try-On Item Deep Link (?tryon=SKU&mode=...)
-    const tryonSku = searchParams.get("tryon");
+    // 2. Try-On Item Deep Link (?tryon=SKU&mode=... or ?tryonA=SKU&tryonB=SKU)
+    const tryonSku = searchParams.get("tryon") || searchParams.get("tryonA");
     const modeParam = searchParams.get("mode");
 
     if (tryonSku && catalog.length > 0) {
@@ -103,7 +103,7 @@ function DeepLinkHandler({
           mode = "photo-match";
         } else if (modeParam === "calculator" || modeParam === "calc") {
           mode = "calculator";
-        } else if (modeParam === "bridal" || modeParam === "combo") {
+        } else if (modeParam === "bridal" || modeParam === "combo" || modeParam === "bridal-poll") {
           mode = "bridal";
         }
         onDeepLinkMatch(matched, mode);
@@ -628,6 +628,7 @@ export default function Home() {
               onSelectForPhotoMatch={handleSelectForPhotoMatch}
               goldRate22K={showroomSettings.goldRate22K}
               goldRate24K={showroomSettings.goldRate24K}
+              showroomName={showroomSettings.showroomName}
               bridalSlots={bridalSlots}
               isComboMode={isComboMode}
               onToggleComboMode={handleToggleComboMode}

@@ -13,7 +13,7 @@ import {
   FaceAnchors,
   DEFAULT_FACE_ANCHORS,
 } from "@/lib/faceLandmarker";
-import { formatINR } from "@/lib/goldMath";
+import { formatINR, calculateGoldPrice } from "@/lib/goldMath";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   analyzeFaceShape,
@@ -22,6 +22,8 @@ import {
   SuitabilityScore,
 } from "@/lib/faceStylistEngine";
 import { FaceSuitabilityBadge } from "@/components/FaceSuitabilityBadge";
+import { FamilyVoteModal, PollOption } from "@/components/FamilyVoteModal";
+import { GoldSchemePlanner } from "@/components/GoldSchemePlanner";
 import {
   BridalComboSlots,
   BridalSlotId,
@@ -49,6 +51,10 @@ import {
   Flame,
   CircleDot,
   Columns,
+  Users,
+  PiggyBank,
+  Scale,
+  X,
 } from "lucide-react";
 
 interface LiveARTryOnProps {
@@ -58,6 +64,7 @@ interface LiveARTryOnProps {
   onSelectForPhotoMatch?: (item: JewelryItem) => void;
   goldRate22K: number;
   goldRate24K?: number;
+  showroomName?: string;
   bridalSlots?: BridalComboSlots;
   isComboMode?: boolean;
   onToggleComboMode?: (enabled: boolean) => void;
@@ -74,6 +81,7 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
   onSelectForPhotoMatch,
   goldRate22K,
   goldRate24K = 7470,
+  showroomName = "Sri Krishna Jewellers",
   bridalSlots,
   isComboMode = false,
   onToggleComboMode,
@@ -148,6 +156,23 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
     calculateSuitability(selectedItem, analyzeFaceShape(DEFAULT_FACE_ANCHORS))
   );
 
+  // Dynamic Gram-to-Visual Thickness Morphing State (Phase 6)
+  const [selectedGrams, setSelectedGrams] = useState<number>(() => {
+    return initialItem?.defaultGrams || 36;
+  });
+  const [showGramMorphSlider, setShowGramMorphSlider] = useState<boolean>(true);
+
+  // Phase 6 Modals: Family Poll & Gold Scheme Planner
+  const [isFamilyVoteOpen, setIsFamilyVoteOpen] = useState<boolean>(false);
+  const [isSchemePlannerOpen, setIsSchemePlannerOpen] = useState<boolean>(false);
+
+  // Sync selectedGrams when selectedItem changes
+  useEffect(() => {
+    if (selectedItem) {
+      setSelectedGrams(selectedItem.defaultGrams);
+    }
+  }, [selectedItem]);
+
   // Refs
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -157,6 +182,51 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
   const cachedSlotImgsRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const previousAnchorsRef = useRef<FaceAnchors | null>(null);
   const currentAnchorsRef = useRef<FaceAnchors | null>(null);
+
+  // Craft note and live price calculations for Dynamic Gram Morphing (Phase 6)
+  const minG = selectedItem.minGrams || 20;
+  const maxG = selectedItem.maxGrams || 80;
+  const morphFactor = Math.max(
+    0,
+    Math.min(1, (selectedGrams - minG) / Math.max(1, maxG - minG))
+  );
+
+  const liveEstimatedPrice = calculateGoldPrice(
+    selectedGrams,
+    selectedItem.purity,
+    {
+      goldRate22K,
+      wastagePercent: selectedItem.wastagePercent,
+      makingChargePerGram: selectedItem.makingChargePerGram,
+      stoneWeightGrams: selectedItem.stoneWeightGrams || 0,
+      stoneCostFlat: selectedItem.stoneCostFlat || 0,
+    }
+  ).totalEstimatedPrice;
+
+  const craftNote =
+    morphFactor < 0.35
+      ? {
+          en: `${selectedGrams}g: Sleek Hollow/Sheet Work`,
+          te: `${selectedGrams}g: లైట్ వెయిట్ రేకు పని`,
+          descEn: "Lightweight, everyday elegance with hollow stamping",
+          descTe: "రోజువారీ ధారణకు అనువైన తేలికపాటి కళాత్మకత",
+          badgeColor: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+        }
+      : morphFactor < 0.70
+      ? {
+          en: `${selectedGrams}g: Standard Handcrafted Gold Casting`,
+          te: `${selectedGrams}g: మధ్యస్థ ఘన చేతిపని`,
+          descEn: "Balanced durability with intricate traditional filigree",
+          descTe: "శుభకార్యాలకు అత్యంత అనువైన సమతుల్య బరువు & నైపుణ్యం",
+          badgeColor: "bg-gold-500/15 text-gold-300 border-gold-500/30",
+        }
+      : {
+          en: `${selectedGrams}g: Solid Heavyweight Nakshi / Temple Casting`,
+          te: `${selectedGrams}g: భారీ గట్టి నక్షి పని`,
+          descEn: "Heirloom royal presence with deeply chiseled solid casting",
+          descTe: "తరతరాలు గుర్తుండిపోయే రాయల్ హెరిటేజ్ ఘన డిజైన్",
+          badgeColor: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+        };
 
   // Sync initial item if changed from parent
   useEffect(() => {
@@ -354,6 +424,7 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
     activeSlotFocus,
     slotOverrides,
     isLiteMode,
+    selectedGrams,
   ]);
 
   useEffect(() => {
@@ -401,6 +472,19 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
     const faceW = anchors.faceWidth * width;
     const faceH = anchors.faceHeight * height;
 
+    // Dynamic Gram-to-Thickness Morphing Multipliers (Phase 6)
+    const minG = item.minGrams || 20;
+    const maxG = item.maxGrams || 80;
+    const itemGrams = selectedGrams || item.defaultGrams;
+    const morphT = Math.max(0, Math.min(1, (itemGrams - minG) / Math.max(1, maxG - minG)));
+    const morphWidthMult = 0.88 + 0.24 * morphT;
+    const morphHeightMult = 0.94 + 0.10 * morphT;
+
+    // Contact drop-shadow depth scaling with metal density
+    ctx.shadowColor = `rgba(0, 0, 0, ${0.20 + 0.35 * morphT})`;
+    ctx.shadowBlur = 6 + 14 * morphT;
+    ctx.shadowOffsetY = 2 + 6 * morphT;
+
     // Fractional offset relative to dynamic face dimensions (Item 12)
     const effOffsetX = (offsetXMod / 100) * faceW;
     const effOffsetY = (offsetYMod / 100) * faceH;
@@ -410,7 +494,7 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
       const leftX = anchors.leftEar.x * width + effOffsetX;
       const leftY = anchors.leftEar.y * height + effOffsetY;
       const earScale = (faceW / 240) * item.defaultScale * scaleMod;
-      const ew = 90 * earScale;
+      const ew = 90 * earScale * (0.90 + 0.20 * morphT);
       const eh = ew / (img.width / img.height || item.aspectRatio);
 
       ctx.save();
@@ -438,8 +522,8 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
         verticalStackAdjustment +
         effOffsetY;
       const neckScale = (faceW / 180) * item.defaultScale * scaleMod;
-      const nw = 340 * neckScale;
-      const nh = nw / (img.width / img.height || item.aspectRatio);
+      const nw = 340 * neckScale * morphWidthMult;
+      const nh = (nw / (img.width / img.height || item.aspectRatio)) * (morphHeightMult / morphWidthMult);
 
       ctx.save();
       ctx.translate(neckX, neckY);
@@ -950,6 +1034,18 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
                 VS
               </div>
             </div>
+
+            {/* Ask Family to Vote on A vs B (Phase 6) */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30">
+              <button
+                type="button"
+                onClick={() => setIsFamilyVoteOpen(true)}
+                className="btn-gold-primary px-4 py-2 rounded-2xl text-xs font-bold shadow-gold-glow flex items-center gap-2"
+              >
+                <Users className="w-4 h-4" />
+                <span>{isTe ? "కుటుంబ ఓటు అడగండి (A vs B)" : "Ask Family: Vote on Design A vs B"}</span>
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -991,21 +1087,79 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
           />
         )}
 
-        {/* Live Active Ornament Pill Overlay */}
+        {/* Dynamic Gram-to-Thickness Morphing & Price Pill (Phase 6) */}
         {!isComboMode ? (
-          <div className="absolute top-20 left-4 z-10 bg-obsidian-950/85 border border-gold-900/60 rounded-2xl p-3 backdrop-blur-md max-w-xs shadow-xl hidden sm:block">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold text-gold-300 tracking-wide font-cinzel truncate">
+          <div className="absolute top-16 sm:top-20 left-4 z-20 bg-obsidian-950/90 border border-gold-500/40 rounded-2xl p-3 sm:p-3.5 backdrop-blur-md max-w-[280px] sm:max-w-xs shadow-2xl space-y-2.5">
+            <div className="flex items-center justify-between border-b border-gold-900/60 pb-1.5">
+              <span className="text-xs font-semibold text-gold-300 font-cinzel truncate max-w-[170px]">
                 {selectedItem.name}
               </span>
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-ivory-muted">
-              <span>{selectedItem.id}</span>
-              <span className="text-emerald-400 font-semibold">
-                {formatINR(
-                  selectedItem.defaultGrams * goldRate22K * (1 + selectedItem.wastagePercent / 100) * 1.03
-                )}
+              <span className="text-[10px] text-ivory-muted font-mono">
+                {selectedItem.id}
               </span>
+            </div>
+
+            {/* Live Price & Grams */}
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-ivory-muted block">Live 22K Estimate:</span>
+                <span className="text-sm font-bold font-mono text-emerald-400">
+                  {formatINR(liveEstimatedPrice)}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-ivory-muted block">Weight:</span>
+                <span className="text-xs font-bold font-mono text-gold-300">
+                  {selectedGrams}g 22K
+                </span>
+              </div>
+            </div>
+
+            {/* Goldsmith Craft Note Badge */}
+            <div className={`p-1.5 rounded-lg border text-[10px] font-medium ${craftNote.badgeColor} leading-tight`}>
+              <span className="font-semibold block">{isTe ? craftNote.te : craftNote.en}</span>
+              <span className="text-ivory-muted text-[9px]">{isTe ? craftNote.descTe : craftNote.descEn}</span>
+            </div>
+
+            {/* Gram Weight Slider */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] text-ivory-muted">
+                <span>{selectedItem.minGrams}g (Sleek)</span>
+                <span className="text-gold-400 font-bold">Slide to Morph Weight</span>
+                <span>{selectedItem.maxGrams}g (Solid)</span>
+              </div>
+              <input
+                type="range"
+                min={selectedItem.minGrams}
+                max={selectedItem.maxGrams}
+                step={1}
+                value={selectedGrams}
+                onChange={(e) => setSelectedGrams(Number(e.target.value))}
+                className="w-full accent-gold-500 cursor-pointer h-1.5 bg-obsidian-900 rounded-lg"
+              />
+            </div>
+
+            {/* Quick Actions: Ask Family Poll & 11+1 Gold Scheme */}
+            <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-gold-900/40 text-[10px]">
+              <button
+                type="button"
+                onClick={() => setIsFamilyVoteOpen(true)}
+                className="p-1.5 rounded-lg bg-obsidian-900 hover:bg-gold-950/60 border border-gold-900/60 hover:border-gold-500 text-gold-300 flex items-center justify-center gap-1 transition-colors font-medium"
+                title="Ask family for vote on WhatsApp"
+              >
+                <Users className="w-3 h-3 text-gold-400" />
+                <span>{isTe ? "కుటుంబ ఓటు" : "Ask Family"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsSchemePlannerOpen(true)}
+                className="p-1.5 rounded-lg bg-obsidian-900 hover:bg-gold-950/60 border border-gold-900/60 hover:border-gold-500 text-gold-300 flex items-center justify-center gap-1 transition-colors font-medium"
+                title="11+1 Month Gold Scheme"
+              >
+                <PiggyBank className="w-3 h-3 text-gold-400" />
+                <span>{isTe ? "బంగారు స్కీమ్" : "11+1 Scheme"}</span>
+              </button>
             </div>
           </div>
         ) : (
@@ -1347,6 +1501,52 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
                 Retake
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feature C: Ask Family Poll Modal (Phase 6) */}
+      {isFamilyVoteOpen && (
+        <FamilyVoteModal
+          isOpen={isFamilyVoteOpen}
+          onClose={() => setIsFamilyVoteOpen(false)}
+          optionA={{
+            id: frozenItemLeft?.id || selectedItem.id,
+            name: frozenItemLeft?.name || selectedItem.name,
+            grams: frozenItemLeft?.defaultGrams || selectedGrams,
+            price: frozenItemLeft
+              ? Math.round(frozenItemLeft.defaultGrams * goldRate22K * 1.15)
+              : liveEstimatedPrice,
+            imageSrc: frozenSnapshotLeft || getJewelryImageUri(frozenItemLeft || selectedItem),
+          }}
+          optionB={{
+            id: selectedItem.id,
+            name: selectedItem.name,
+            grams: selectedGrams,
+            price: liveEstimatedPrice,
+            imageSrc: getJewelryImageUri(selectedItem),
+          }}
+          showroomName={showroomName}
+        />
+      )}
+
+      {/* Feature B: Gold Scheme Planner Modal (Phase 6) */}
+      {isSchemePlannerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-obsidian-950/85 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-lg bg-obsidian-900 border border-gold-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl text-ivory max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsSchemePlannerOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-obsidian-950/60 hover:bg-obsidian-800 text-ivory-muted hover:text-ivory transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <GoldSchemePlanner
+              item={selectedItem}
+              targetGrams={selectedGrams}
+              goldRate22K={goldRate22K}
+              showroomName={showroomName}
+              onEnroll={() => setIsSchemePlannerOpen(false)}
+            />
           </div>
         </div>
       )}

@@ -19,6 +19,9 @@ import {
   QrCode,
   Coins,
   ClipboardList,
+  Users,
+  PiggyBank,
+  Heart,
 } from "lucide-react";
 import { JewelryItem, getJewelryImageUri } from "@/data/mockJewelryCatalog";
 import {
@@ -36,6 +39,9 @@ import {
 } from "@/lib/goldMath";
 import { OldGoldExchangePanel } from "@/components/OldGoldExchangePanel";
 import { useLanguage } from "@/context/LanguageContext";
+import { GoldSchemePlanner } from "@/components/GoldSchemePlanner";
+import { FamilyVoteModal } from "@/components/FamilyVoteModal";
+import { LeadCaptureModal } from "@/components/LeadCaptureModal";
 
 interface GoldCalculatorModalProps {
   item: JewelryItem | null;
@@ -86,6 +92,11 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
     items: OldGoldItem[];
     totalTradeInValue: number;
   } | null>(null);
+
+  // Tabs & Modals State (Phase 6)
+  const [calcTab, setCalcTab] = useState<"calculator" | "exchange" | "scheme">("calculator");
+  const [isFamilyVoteOpen, setIsFamilyVoteOpen] = useState<boolean>(false);
+  const [isLeadCaptureOpen, setIsLeadCaptureOpen] = useState<boolean>(false);
 
   // Sync state when item changes
   useEffect(() => {
@@ -338,9 +349,91 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
           </div>
         </div>
 
+        {/* Tab Navigation (Phase 6) */}
+        <div className="flex border-b border-gold-900/60 bg-obsidian-950 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => setCalcTab("calculator")}
+            className={`flex-1 py-3 text-center transition-colors flex items-center justify-center gap-2 border-b-2 ${
+              calcTab === "calculator"
+                ? "border-gold-500 text-gold-300 font-bold bg-gold-950/20"
+                : "border-transparent text-ivory-muted hover:text-ivory"
+            }`}
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            <span>{language === "te" ? "ధర అంచనా & వివరాలు" : "Live Price Estimate"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCalcTab("exchange")}
+            className={`flex-1 py-3 text-center transition-colors flex items-center justify-center gap-2 border-b-2 ${
+              calcTab === "exchange"
+                ? "border-gold-500 text-gold-300 font-bold bg-gold-950/20"
+                : "border-transparent text-ivory-muted hover:text-ivory"
+            }`}
+          >
+            <Coins className="w-3.5 h-3.5" />
+            <span>{language === "te" ? "పాత బంగారం ఎక్స్ఛేంజ్" : "Old Gold Exchange"}</span>
+            {oldGold && oldGold.items.length > 0 && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCalcTab("scheme")}
+            className={`flex-1 py-3 text-center transition-colors flex items-center justify-center gap-2 border-b-2 ${
+              calcTab === "scheme"
+                ? "border-gold-500 text-gold-300 font-bold bg-gold-950/20"
+                : "border-transparent text-ivory-muted hover:text-ivory"
+            }`}
+          >
+            <PiggyBank className="w-3.5 h-3.5" />
+            <span>{language === "te" ? "11+1 గోల్డ్ స్కీమ్" : "11-Month Gold Scheme"}</span>
+            <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded-full font-bold">
+              0% VA
+            </span>
+          </button>
+        </div>
+
         {/* Modal Scrollable Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {calcTab === "scheme" ? (
+            <GoldSchemePlanner
+              item={item}
+              targetGrams={selectedGrams}
+              goldRate22K={goldRate22K}
+              showroomName={showroomName}
+              onEnroll={() => setCalcTab("calculator")}
+            />
+          ) : calcTab === "exchange" ? (
+            <OldGoldExchangePanel
+              goldRate22K={goldRate22K}
+              goldRate24K={goldRate24K}
+              newPurchaseTotal={breakdown.totalEstimatedPrice}
+              newPurchaseNetGrams={breakdown.netGoldGrams}
+              exchangeItems={liveOldGoldItems}
+              onChangeItems={(newItems) => {
+                if (newItems.length === 0) {
+                  setOldGold(null);
+                } else {
+                  const summary = calculateOldGoldExchange(
+                    newItems,
+                    breakdown.totalEstimatedPrice,
+                    breakdown.netGoldGrams
+                  );
+                  setOldGold({
+                    items: newItems,
+                    totalTradeInValue: summary.totalExchangeValue,
+                  });
+                }
+              }}
+              onApplyToCalculator={handleApplyOldGold}
+              language={language}
+            />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Column: Visual Preview & Craftsmanship specs */}
             <div className="lg:col-span-5 space-y-4">
               <div className="relative aspect-square w-full rounded-2xl bg-gradient-to-b from-obsidian-950 to-obsidian-900 border border-gold-900/60 p-6 flex flex-col items-center justify-center overflow-hidden group shadow-inner-gold">
@@ -722,6 +815,28 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
 
               {/* Action Toolbar: WhatsApp Quote & Copy & QR & Print & Book Order */}
               <div className="flex items-center gap-2 pt-1 flex-wrap">
+                {/* Feature C: Ask Family Vote Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsFamilyVoteOpen(true)}
+                  className="bg-obsidian-800 hover:bg-gold-950/60 text-gold-300 py-2.5 px-3 rounded-xl text-xs flex items-center gap-1.5 border border-gold-900/60 hover:border-gold-500 transition-colors font-medium"
+                  title="Ask family for vote on WhatsApp"
+                >
+                  <Users className="w-4 h-4 text-gold-400" />
+                  <span>{language === "te" ? "కుటుంబ ఓటు" : "Ask Family"}</span>
+                </button>
+
+                {/* Feature D: Save Estimate & VIP Lead Capture */}
+                <button
+                  type="button"
+                  onClick={() => setIsLeadCaptureOpen(true)}
+                  className="bg-obsidian-800 hover:bg-gold-950/60 text-gold-300 py-2.5 px-3 rounded-xl text-xs flex items-center gap-1.5 border border-gold-900/60 hover:border-gold-500 transition-colors font-medium"
+                  title="Save quote and unlock VIP showroom discount"
+                >
+                  <Sparkles className="w-4 h-4 text-gold-400" />
+                  <span>{language === "te" ? "కొటేషన్ సేవ్" : "Save Quote"}</span>
+                </button>
+
                 {onBookOrder && (
                   <button
                     onClick={handleBookOrder}
@@ -788,7 +903,42 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
               </div>
             </div>
           </div>
+          )}
         </div>
+
+        {/* Feature C: Ask Family Poll Modal */}
+        {isFamilyVoteOpen && (
+          <FamilyVoteModal
+            isOpen={isFamilyVoteOpen}
+            onClose={() => setIsFamilyVoteOpen(false)}
+            optionA={{
+              id: item.id,
+              name: item.name,
+              grams: selectedGrams,
+              price: breakdown.totalEstimatedPrice,
+              imageSrc: getJewelryImageUri(item),
+            }}
+            optionB={{
+              id: "SW-HRM-104",
+              name: "Royal Heritage Kasu Mala & Temple Haram",
+              grams: 56,
+              price: Math.round(56 * goldRate22K * 1.15),
+            }}
+            showroomName={showroomName}
+          />
+        )}
+
+        {/* Feature D: Soft Lead Capture Modal */}
+        {isLeadCaptureOpen && (
+          <LeadCaptureModal
+            isOpen={isLeadCaptureOpen}
+            onClose={() => setIsLeadCaptureOpen(false)}
+            ornamentItem={item}
+            currentGrams={selectedGrams}
+            estimatedPrice={breakdown.totalEstimatedPrice}
+            source="calculator"
+          />
+        )}
       </div>
     </div>
   );

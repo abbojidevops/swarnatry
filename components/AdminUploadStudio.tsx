@@ -52,6 +52,12 @@ import {
   Building,
   MapPin,
   Share2,
+  Users,
+  BarChart3,
+  TrendingUp,
+  MessageSquare,
+  Search,
+  Filter,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import {
@@ -61,6 +67,15 @@ import {
 } from "@/lib/paymentGateway";
 import { saveShowroomSettings, getLocalShowroomSettings } from "@/lib/goldRateStore";
 import { useLanguage } from "@/context/LanguageContext";
+import {
+  getLeads,
+  deleteLead,
+  getLeadAnalytics,
+  exportLeadsCSV,
+  generateWhatsAppFollowUpUrl,
+  ShowroomLead,
+} from "@/lib/leadStore";
+import { formatINR } from "@/lib/goldMath";
 
 const SALT = "swarnatry_salt_2026";
 const DEFAULT_PIN_HASH = "0c4e486026a2f40b103173a75dea2c25f7b45e69845631b3be1422e974c0f403"; // 2224
@@ -152,11 +167,25 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
     return () => clearInterval(timer);
   }, [cooldownRemaining]);
 
-  // Workflow Active Tab: "studio" | "manage" | "cloud" | "settings"
+  // Workflow Active Tab: "studio" | "manage" | "cloud" | "settings" | "leads"
   const [activeTab, setActiveTab] = useState<
-    "studio" | "manage" | "cloud" | "settings"
+    "studio" | "manage" | "cloud" | "settings" | "leads"
   >("studio");
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+
+  // Customer Leads & CRM State (Phase 6)
+  const [leads, setLeads] = useState<ShowroomLead[]>(() => getLeads());
+  const [leadSearch, setLeadSearch] = useState<string>("");
+  const [leadOccasionFilter, setLeadOccasionFilter] = useState<string>("all");
+  const [selectedLead, setSelectedLead] = useState<ShowroomLead | null>(null);
+
+  useEffect(() => {
+    const handleUpdate = () => setLeads(getLeads());
+    window.addEventListener("swarnatry_leads_updated", handleUpdate);
+    return () => window.removeEventListener("swarnatry_leads_updated", handleUpdate);
+  }, []);
+
+  const leadAnalytics = getLeadAnalytics();
 
   // Payment & Admin Settings State (Phase 4)
   const [paySettings, setPaySettings] = useState<PaymentSettings>(getPaymentSettings());
@@ -872,6 +901,20 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
                 >
                   <Settings className="w-3.5 h-3.5" />
                   <span>Payments & PIN</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("leads")}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-colors ${
+                    activeTab === "leads"
+                      ? "bg-gold-500 text-obsidian-950 font-semibold"
+                      : "text-ivory-muted hover:text-ivory"
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Leads CRM</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-gold-500/20 text-gold-300 font-bold">
+                    {leads.length}
+                  </span>
                 </button>
               </div>
             )}
@@ -1627,6 +1670,214 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
                     ₹{partnerRateInput}/g
                   </span>
                 </div>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === "leads" ? (
+          /* TAB 5: Customer Leads & Showroom Analytics CRM (Phase 6) */
+          <div className="p-6 overflow-y-auto space-y-6 flex-1 text-ivory">
+            {/* 4 KPI Metrics Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="p-4 rounded-2xl bg-obsidian-950/80 border border-gold-subtle space-y-1">
+                <span className="text-[11px] text-ivory-muted uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-gold-400" />
+                  <span>Total Leads</span>
+                </span>
+                <div className="text-xl sm:text-2xl font-bold font-mono text-gold-300">
+                  {leads.length}
+                </div>
+                <span className="text-[10px] text-emerald-400">
+                  Active showroom inquiries
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-obsidian-950/80 border border-gold-subtle space-y-1">
+                <span className="text-[11px] text-ivory-muted uppercase tracking-wider flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-gold-400" />
+                  <span>Try-On Volume</span>
+                </span>
+                <div className="text-xl sm:text-2xl font-bold font-mono text-emerald-300">
+                  {leadAnalytics.totalTryOns}+
+                </div>
+                <span className="text-[10px] text-ivory-muted">
+                  Virtual sessions today
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-obsidian-950/80 border border-gold-subtle space-y-1">
+                <span className="text-[11px] text-ivory-muted uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-gold-400" />
+                  <span>Top Design</span>
+                </span>
+                <div className="text-xs sm:text-sm font-bold font-cinzel text-gold-200 truncate">
+                  {leadAnalytics.topOrnament}
+                </div>
+                <span className="text-[10px] text-gold-400">
+                  Most tried by customers
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-obsidian-950/80 border border-gold-subtle space-y-1">
+                <span className="text-[11px] text-ivory-muted uppercase tracking-wider flex items-center gap-1.5">
+                  <Scale className="w-3.5 h-3.5 text-gold-400" />
+                  <span>Avg Budget</span>
+                </span>
+                <div className="text-xl sm:text-2xl font-bold font-mono text-gold-300">
+                  {formatINR(leadAnalytics.avgBudget)}
+                </div>
+                <span className="text-[10px] text-ivory-muted">
+                  Customer gold ticket size
+                </span>
+              </div>
+            </div>
+
+            {/* Filter & Actions Bar */}
+            <div className="p-4 rounded-2xl bg-obsidian-950/90 border border-gold-900/60 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 text-gold-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={leadSearch}
+                    onChange={(e) => setLeadSearch(e.target.value)}
+                    placeholder="Search leads by name, phone, or ornament..."
+                    className="w-full bg-obsidian-900 border border-gold-900/60 rounded-xl pl-9 pr-3.5 py-2 text-xs text-ivory focus:outline-none focus:border-gold-400"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 bg-obsidian-900 p-1 rounded-xl border border-gold-900/40 text-xs">
+                  {["all", "wedding", "festival", "gift", "personal"].map((occ) => (
+                    <button
+                      key={occ}
+                      onClick={() => setLeadOccasionFilter(occ)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium capitalize transition-colors ${
+                        leadOccasionFilter === occ
+                          ? "bg-gold-500 text-obsidian-950 font-bold"
+                          : "text-ivory-muted hover:text-ivory"
+                      }`}
+                    >
+                      {occ}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const csv = exportLeadsCSV();
+                  const blob = new Blob([csv], { type: "text/csv" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `SwarnaTry_Leads_${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="bg-obsidian-900 hover:bg-obsidian-850 text-gold-300 border border-gold-900/60 px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
+              </button>
+            </div>
+
+            {/* Leads Table */}
+            <div className="rounded-2xl bg-obsidian-950/80 border border-gold-subtle overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-obsidian-950 text-gold-400 uppercase tracking-wider text-[10px] border-b border-gold-900/60 font-cinzel">
+                    <tr>
+                      <th className="px-4 py-3">Customer</th>
+                      <th className="px-4 py-3">Occasion</th>
+                      <th className="px-4 py-3">Ornament Tried</th>
+                      <th className="px-4 py-3">Weight</th>
+                      <th className="px-4 py-3">Estimate</th>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gold-900/20 text-ivory">
+                    {leads
+                      .filter((l) => {
+                        const q = leadSearch.toLowerCase();
+                        const matchesSearch =
+                          l.customerName.toLowerCase().includes(q) ||
+                          l.phone.includes(q) ||
+                          l.ornamentName.toLowerCase().includes(q);
+                        const matchesOccasion =
+                          leadOccasionFilter === "all" || l.occasion === leadOccasionFilter;
+                        return matchesSearch && matchesOccasion;
+                      })
+                      .map((lead) => (
+                        <tr
+                          key={lead.id}
+                          className="hover:bg-gold-950/20 transition-colors"
+                        >
+                          <td className="px-4 py-3">
+                            <span className="font-semibold block text-ivory">
+                              {lead.customerName}
+                            </span>
+                            <span className="text-[11px] text-ivory-muted font-mono">
+                              {lead.phone}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                              lead.occasion === "wedding"
+                                ? "bg-ruby-500/15 text-ruby-300 border border-ruby-500/30"
+                                : lead.occasion === "festival"
+                                ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                                : "bg-gold-500/15 text-gold-300 border border-gold-500/30"
+                            }`}>
+                              {lead.occasion}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="truncate max-w-[180px] block font-medium">
+                              {lead.ornamentName}
+                            </span>
+                            <span className="text-[10px] text-ivory-muted uppercase">
+                              via {lead.source}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-gold-300">
+                            {lead.selectedGrams}g
+                          </td>
+                          <td className="px-4 py-3 font-mono font-bold text-emerald-400">
+                            {formatINR(lead.estimatedPrice)}
+                          </td>
+                          <td className="px-4 py-3 text-ivory-muted text-[11px]">
+                            {new Date(lead.timestamp).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                            })}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <a
+                                href={generateWhatsAppFollowUpUrl(lead, partnerShopInput, isTe)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white p-2 rounded-xl text-xs font-semibold flex items-center gap-1 shadow-sm transition-colors"
+                                title="Follow up on WhatsApp with personalized quote"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">WhatsApp</span>
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => deleteLead(lead.id)}
+                                className="p-2 rounded-xl text-ivory-muted hover:text-ruby-400 hover:bg-ruby-950/40 transition-colors"
+                                title="Delete Lead"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
