@@ -13,7 +13,14 @@ import {
   FaceAnchors,
   DEFAULT_FACE_ANCHORS,
 } from "@/lib/faceLandmarker";
-import { formatINR, calculateGoldPrice } from "@/lib/goldMath";
+import {
+  formatINR,
+  calculateGoldPrice,
+  BangleSize,
+  BANGLE_SIZES,
+  BANGLE_SIZES_LIST,
+  calculateBangleWeight,
+} from "@/lib/goldMath";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   analyzeFaceShape,
@@ -59,6 +66,7 @@ import {
   Film,
   Play,
   Share2,
+  Hand,
 } from "lucide-react";
 
 export interface SareeDrape {
@@ -291,6 +299,24 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
   // Feature B: 5-Second Bridal Reel Recorder (Phase 7)
   const [isRecordingReel, setIsRecordingReel] = useState<boolean>(false);
   const [reelCountdown, setReelCountdown] = useState<number>(5);
+
+  // Feature A: Hand & Wrist AR Mode (Phase 8)
+  const isWristOrWaistCategory =
+    selectedItem.category === "bangles" ||
+    selectedItem.category === "rings" ||
+    selectedItem.category === "vaddanam" ||
+    selectedItem.anchorType === "wrist" ||
+    selectedItem.anchorType === "waist";
+
+  const [wristMode, setWristMode] = useState<boolean>(isWristOrWaistCategory);
+  const [bangleStackCount, setBangleStackCount] = useState<number>(2);
+  const [bangleSize, setBangleSize] = useState<BangleSize>("2.6");
+
+  useEffect(() => {
+    if (isWristOrWaistCategory) {
+      setWristMode(true);
+    }
+  }, [selectedItem.id, isWristOrWaistCategory]);
   const [recordedReelUrl, setRecordedReelUrl] = useState<string | null>(null);
   const [isReelModalOpen, setIsReelModalOpen] = useState<boolean>(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -557,6 +583,10 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
           manualRotate
         );
       }
+
+      if (wristMode || isWristOrWaistCategory) {
+        drawWristAlignmentGuide(ctx, width, height, selectedItem.category);
+      }
     }
 
     animFrameIdRef.current = requestAnimationFrame(renderLoop);
@@ -574,6 +604,10 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
     isLiteMode,
     selectedGrams,
     activeSareeDrape,
+    wristMode,
+    bangleStackCount,
+    bangleSize,
+    isWristOrWaistCategory,
   ]);
 
   useEffect(() => {
@@ -584,6 +618,43 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
       }
     };
   }, [renderLoop]);
+
+  // Feature A: Hand, Wrist & Waist Alignment Guide (Phase 8)
+  const drawWristAlignmentGuide = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    category: string
+  ) => {
+    ctx.save();
+    ctx.strokeStyle = "rgba(212, 175, 55, 0.45)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 6]);
+
+    if (category === "vaddanam") {
+      const vy = height * 0.82;
+      ctx.beginPath();
+      ctx.ellipse(width * 0.5, vy, width * 0.38, 28, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(212, 175, 55, 0.85)";
+      ctx.font = "11px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(isTe ? "నడుము అమరిక (Align Waist)" : "Align Waistbelt / Vaddanam", width * 0.5, vy - 20);
+    } else {
+      const wx = width * 0.5;
+      const wy = height * 0.68;
+      ctx.beginPath();
+      ctx.ellipse(wx, wy, 110, 48, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(212, 175, 55, 0.85)";
+      ctx.font = "bold 11px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(isTe ? "చేయి / మణికట్టును ఇక్కడ ఉంచండి" : "Hold Hand / Wrist Here", wx, wy - 55);
+    }
+    ctx.restore();
+  };
 
   // Feature C: Render Kanchipuram Saree / Blouse Drape on Shoulders (Phase 7)
   const drawSareeDrape = (
@@ -765,8 +836,56 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
       ctx.rotate(anchors.rollAngle + (rotateMod * Math.PI) / 180);
       ctx.drawImage(img, -tw / 2, -th * 0.2, tw, th);
       ctx.restore();
+    } else if (item.anchorType === "wrist" || item.category === "bangles") {
+      // Feature A: Bangles & Kadiyalu on Wrist with Multi-Stack & Size Scaling
+      const wx = width * 0.5 + effOffsetX;
+      const wy = height * 0.68 + effOffsetY;
+      const szObj = BANGLE_SIZES[bangleSize];
+      const sizeScale = szObj ? (szObj.scaleFactor || szObj.weightMultiplier) : 1.0;
+      const bw = 240 * item.defaultScale * scaleMod * sizeScale * morphWidthMult;
+      const bh = bw / (img.width / img.height || 1.0);
+
+      const stacks = item.category === "bangles" ? bangleStackCount : 1;
+      for (let s = 0; s < stacks; s++) {
+        const stackOffset = (s - (stacks - 1) / 2) * (bh * 0.38);
+        ctx.save();
+        ctx.translate(wx, wy + stackOffset);
+        ctx.rotate(anchors.rollAngle + (rotateMod * Math.PI) / 180);
+        ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+        ctx.shadowBlur = 10;
+        ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
+        ctx.restore();
+      }
+    } else if (item.category === "rings") {
+      // Feature A: Ring on Finger / Hand
+      const rx = width * 0.5 + effOffsetX;
+      const ry = height * 0.62 + effOffsetY;
+      const rw = 120 * item.defaultScale * scaleMod;
+      const rh = rw / (img.width / img.height || 1.0);
+
+      ctx.save();
+      ctx.translate(rx, ry);
+      ctx.rotate(anchors.rollAngle + (rotateMod * Math.PI) / 180);
+      ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+      ctx.shadowBlur = 8;
+      ctx.drawImage(img, -rw / 2, -rh / 2, rw, rh);
+      ctx.restore();
+    } else if (item.anchorType === "waist" || item.category === "vaddanam") {
+      // Feature A: Vaddanam / Waistbelt Alignment
+      const vx = width * 0.5 + effOffsetX;
+      const vy = height * 0.82 + effOffsetY;
+      const vw = width * 0.74 * item.defaultScale * scaleMod * morphWidthMult;
+      const vh = vw / (img.width / img.height || 2.4);
+
+      ctx.save();
+      ctx.translate(vx, vy);
+      ctx.rotate(anchors.rollAngle + (rotateMod * Math.PI) / 180);
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowBlur = 14;
+      ctx.drawImage(img, -vw / 2, -vh * 0.4, vw, vh);
+      ctx.restore();
     } else {
-      // General / Bangles
+      // General Fallback
       const wx = width * 0.5 + effOffsetX;
       const wy = height * 0.75 + effOffsetY;
       const bw = 200 * item.defaultScale * scaleMod;
@@ -1245,6 +1364,20 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Feature A: Hand & Wrist AR Mode Toggle (Phase 8) */}
+          <button
+            onClick={() => setWristMode(!wristMode)}
+            className={`px-3 py-1.5 rounded-xl backdrop-blur-md border transition-all flex items-center gap-1.5 text-xs font-semibold ${
+              wristMode
+                ? "bg-amber-500 text-obsidian-950 border-amber-400 shadow-gold-glow"
+                : "bg-obsidian-950/80 text-gold-300 border-gold-900/80 hover:bg-obsidian-800"
+            }`}
+            title="Hand, Wrist & Waist AR Mode (చేయి / మణికట్టు / వడ్డాణం)"
+          >
+            <Hand className="w-4 h-4" />
+            <span className="hidden sm:inline">{isTe ? "చేయి మోడ్" : "Wrist Mode"}</span>
+          </button>
+
           {/* Saree Drape Contrast Matcher (Phase 7) */}
           <div className="relative">
             <button
@@ -1719,6 +1852,62 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Bangle Sizing & Stacking Controls (Phase 8) */}
+            {(selectedItem.category === "bangles" || wristMode) && (
+              <div className="p-2.5 rounded-xl bg-obsidian-900 border border-gold-900/60 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-gold-300 text-[11px] uppercase tracking-wider">
+                    {isTe ? "గాజుల సైజు (Bangle Size):" : "Bangle Size:"}
+                  </span>
+                  <span className="font-mono text-gold-200 text-[11px]">{bangleSize}</span>
+                </div>
+                <div className="grid grid-cols-5 gap-1">
+                  {BANGLE_SIZES_LIST.map((sz) => (
+                    <button
+                      key={sz.size}
+                      type="button"
+                      onClick={() => setBangleSize(sz.size)}
+                      className={`py-1 text-[10px] rounded border transition-all text-center ${
+                        bangleSize === sz.size
+                          ? "bg-gold-500 text-obsidian-950 font-bold border-gold-400"
+                          : "bg-obsidian-950 text-ivory-muted border-gold-900/40 hover:border-gold-500"
+                      }`}
+                    >
+                      {sz.size}
+                    </button>
+                  ))}
+                </div>
+
+                {selectedItem.category === "bangles" && (
+                  <div className="space-y-1 pt-1 border-t border-gold-900/40">
+                    <div className="text-[10px] text-ivory-muted">
+                      {isTe ? "గాజుల సంఖ్య (Stack Count):" : "Stack Count:"}
+                    </div>
+                    <div className="grid grid-cols-3 gap-1">
+                      {[
+                        { count: 1, label: "1 Pc" },
+                        { count: 2, label: "Pair (2)" },
+                        { count: 4, label: "Set of 4" },
+                      ].map((st) => (
+                        <button
+                          key={st.count}
+                          type="button"
+                          onClick={() => setBangleStackCount(st.count)}
+                          className={`py-1 text-[10px] rounded border transition-all text-center ${
+                            bangleStackCount === st.count
+                              ? "bg-gold-500 text-obsidian-950 font-bold border-gold-400"
+                              : "bg-obsidian-950 text-ivory-muted border-gold-900/40 hover:border-gold-500"
+                          }`}
+                        >
+                          {st.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

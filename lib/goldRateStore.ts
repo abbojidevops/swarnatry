@@ -10,6 +10,153 @@ const GOLD_RATE_EVENT = "swarnatry_gold_rate_changed";
 export const toRupees = (paise: number): number => Math.round(paise) / 100;
 export const toPaise = (rupees: number): number => Math.round(rupees * 100);
 
+/**
+ * Phase 8: Showroom Festive & Muhurtham Offer Campaign Engine
+ */
+export type FestiveDiscountType =
+  | "va_discount_percent"
+  | "making_discount_flat"
+  | "zero_making_above_grams";
+
+export interface FestiveOffer {
+  id: string;
+  enabled: boolean;
+  isActive?: boolean;
+  title: string;
+  name?: string;
+  teluguTitle: string;
+  nameTe?: string;
+  discountType: FestiveDiscountType;
+  discountValue: number; // e.g. 25 for 25% off VA%, 250 for ₹250 off making/g, 50 for 50g+ zero making
+  bannerText: string;
+  badgeText?: string;
+  bannerTextTelugu: string;
+  badgeTextTe?: string;
+  validUntil?: string; // e.g. "Limited Muhurtham Period" / "ఈ నెల చివరి వరకు"
+}
+
+export const FESTIVE_CAMPAIGN_PRESETS: FestiveOffer[] = [
+  {
+    id: "wedding_season",
+    enabled: true,
+    isActive: true,
+    title: "Wedding Season & Sravana Masam Special",
+    name: "Wedding Season & Sravana Masam Special",
+    teluguTitle: "శ్రావణ మాసం & పెళ్లిళ్ల సీజన్ ఆఫర్",
+    nameTe: "శ్రావణ మాసం & పెళ్లిళ్ల సీజన్ ఆఫర్",
+    discountType: "va_discount_percent",
+    discountValue: 25, // 25% off VA
+    bannerText: "🎉 Festive Special: Flat 25% OFF on Wastage (VA%) on all Heritage Gold Jewelry!",
+    badgeText: "25% OFF on Wastage (VA%)",
+    bannerTextTelugu: "🎉 ప్రత్యేక పండుగ ఆఫర్: అన్ని ఆభరణాల తరుగు (VA%) పై ఫ్లాట్ 25% తగ్గింపు!",
+    badgeTextTe: "తరుగు (VA%) పై 25% తగ్గింపు",
+    validUntil: "Muhurtham Special",
+  },
+  {
+    id: "akshaya_tritiya",
+    enabled: true,
+    isActive: true,
+    title: "Akshaya Tritiya & Dhanteras Bullion Utsav",
+    name: "Akshaya Tritiya & Dhanteras Bullion Utsav",
+    teluguTitle: "అక్షయ తృతీయ & ధంతేరస్ ఉత్సవం",
+    nameTe: "అక్షయ తృతీయ & ధంతేరస్ ఉత్సవం",
+    discountType: "making_discount_flat",
+    discountValue: 250, // ₹250 off per gram on making
+    bannerText: "✨ Shubh Muhurtham: Flat ₹250 OFF per gram on Making Charges across all 22K/24K Ornaments!",
+    badgeText: "Flat ₹250/g OFF on Making",
+    bannerTextTelugu: "✨ శుభ ముహూర్తం: ప్రతి గ్రాము తయారీ కూలీపై ఫ్లాట్ ₹250 తగ్గింపు!",
+    badgeTextTe: "తయారీ కూలీపై ₹250/గ్రా తగ్గింపు",
+    validUntil: "Akshaya Tritiya",
+  },
+  {
+    id: "bridal_zero_making",
+    enabled: true,
+    isActive: true,
+    title: "Grand Bridal 50g+ Zero Making Offer",
+    name: "Grand Bridal 50g+ Zero Making Offer",
+    teluguTitle: "50 గ్రాములకు పైగా బ్రైడల్ సెట్స్ పై ఉచిత తయారీ కూలీ",
+    nameTe: "50 గ్రాములకు పైగా బ్రైడల్ సెట్స్ పై ఉచిత తయారీ కూలీ",
+    discountType: "zero_making_above_grams",
+    discountValue: 50, // 50g threshold
+    bannerText: "👑 Royal Bridal Offer: 100% FREE Making Charges on all Bridal Sets above 50 Grams!",
+    badgeText: "100% Free Making (50g+)",
+    bannerTextTelugu: "👑 రాయల్ బ్రైడల్ ఆఫర్: 50 గ్రాముల పైబడిన పెళ్లి ఆభరణాలపై 100% ఉచిత తయారీ కూలీ!",
+    badgeTextTe: "100% ఉచిత తయారీ కూలీ",
+    validUntil: "Bridal Special",
+  },
+];
+
+export async function updateFestiveOffer(offer: FestiveOffer | null) {
+  const updated = await saveShowroomSettings({ festiveOffer: offer || undefined });
+  return updated;
+}
+
+export function calculateFestiveDiscount(
+  grams: number,
+  baseWastagePercent: number,
+  baseMakingChargePerGram: number,
+  goldRate: number,
+  offer?: FestiveOffer | null
+): {
+  discountAmount: number;
+  finalPrice?: number;
+  effectiveWastagePercent: number;
+  effectiveMakingChargePerGram: number;
+  offerApplied: boolean;
+  savingsDescription: string;
+} {
+  const isOfferActive = Boolean(offer && (offer.enabled || offer.isActive));
+  if (!offer || !isOfferActive) {
+    return {
+      discountAmount: 0,
+      finalPrice: Math.round(grams * goldRate + grams * (baseWastagePercent / 100) * goldRate + grams * baseMakingChargePerGram),
+      effectiveWastagePercent: baseWastagePercent,
+      effectiveMakingChargePerGram: baseMakingChargePerGram,
+      offerApplied: false,
+      savingsDescription: "",
+    };
+  }
+
+  let effectiveWastage = baseWastagePercent;
+  let effectiveMaking = baseMakingChargePerGram;
+
+  if (offer.discountType === "va_discount_percent") {
+    effectiveWastage = Math.max(0, baseWastagePercent * (1 - offer.discountValue / 100));
+  } else if (offer.discountType === "making_discount_flat") {
+    effectiveMaking = Math.max(0, baseMakingChargePerGram - offer.discountValue);
+  } else if (offer.discountType === "zero_making_above_grams") {
+    if (grams >= offer.discountValue) {
+      effectiveMaking = 0;
+    }
+  }
+
+  const standardWastageCost = grams * (baseWastagePercent / 100) * goldRate;
+  const standardMakingCost = grams * baseMakingChargePerGram;
+  const standardAddons = standardWastageCost + standardMakingCost;
+
+  const discountedWastageCost = grams * (effectiveWastage / 100) * goldRate;
+  const discountedMakingCost = grams * effectiveMaking;
+  const discountedAddons = discountedWastageCost + discountedMakingCost;
+
+  const savings = Math.max(0, Math.round(standardAddons - discountedAddons));
+  const applied = savings > 0;
+
+  return {
+    discountAmount: savings,
+    finalPrice: Math.round(grams * goldRate + discountedAddons),
+    effectiveWastagePercent: effectiveWastage,
+    effectiveMakingChargePerGram: effectiveMaking,
+    offerApplied: applied,
+    savingsDescription: applied
+      ? offer.discountType === "va_discount_percent"
+        ? `${offer.discountValue}% OFF on Wastage (VA)`
+        : offer.discountType === "making_discount_flat"
+        ? `₹${offer.discountValue}/g OFF on Making`
+        : `100% Free Making (50g+ Offer)`
+      : "",
+  };
+}
+
 export interface ShowroomSettings {
   id?: string;
   showroomName: string;
@@ -21,6 +168,7 @@ export interface ShowroomSettings {
   rate18KPaise?: number;
   gstOnMakingOnly?: boolean;
   isRateLocked: boolean;
+  festiveOffer?: FestiveOffer;
   updatedAt: string;
 }
 
@@ -35,6 +183,7 @@ export const DEFAULT_SHOWROOM_SETTINGS: ShowroomSettings = {
   rate18KPaise: toPaise(DEFAULT_GOLD_CONFIG.goldRate18K),
   gstOnMakingOnly: false,
   isRateLocked: false,
+  festiveOffer: FESTIVE_CAMPAIGN_PRESETS[0],
   updatedAt: new Date().toISOString(),
 };
 
@@ -251,12 +400,18 @@ export function useGoldRateStore() {
     setSettings(updated);
   };
 
+  const updateFestiveOffer = async (offer: FestiveOffer | null) => {
+    const updated = await saveShowroomSettings({ festiveOffer: offer || undefined });
+    setSettings(updated);
+  };
+
   return {
     settings,
     isCloudConnected,
     updateRates,
     updateShowroomName,
     toggleRateLock,
+    updateFestiveOffer,
     refreshSettings,
   };
 }

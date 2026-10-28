@@ -49,6 +49,7 @@ interface CatalogGridProps {
   bridalSlots?: BridalComboSlots;
   onEquipSlot?: (slotId: BridalSlotId, item: JewelryItem) => void;
   onOpenBridalDrawer?: () => void;
+  onOpenCustomization?: (item: JewelryItem) => void;
 }
 
 export const CatalogGrid: React.FC<CatalogGridProps> = ({
@@ -64,6 +65,7 @@ export const CatalogGrid: React.FC<CatalogGridProps> = ({
   bridalSlots,
   onEquipSlot,
   onOpenBridalDrawer,
+  onOpenCustomization,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedStyle, setSelectedStyle] = useState<string>("all");
@@ -208,7 +210,29 @@ export const CatalogGrid: React.FC<CatalogGridProps> = ({
                 : "bg-obsidian-950/70 text-ivory-muted hover:text-ivory border border-gold-900/40"
             }`}
           >
-            Bangles / Vanki
+            Bangles / Kadiyalu (గాజులు)
+          </button>
+
+          <button
+            onClick={() => setSelectedCategory("rings")}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all shrink-0 ${
+              selectedCategory === "rings"
+                ? "bg-gradient-to-r from-gold-600 via-gold-500 to-gold-600 text-obsidian-950 font-semibold shadow-gold-glow"
+                : "bg-obsidian-950/70 text-ivory-muted hover:text-ivory border border-gold-900/40"
+            }`}
+          >
+            Rings (ఉంగరాలు)
+          </button>
+
+          <button
+            onClick={() => setSelectedCategory("vaddanam")}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all shrink-0 ${
+              selectedCategory === "vaddanam"
+                ? "bg-gradient-to-r from-gold-600 via-gold-500 to-gold-600 text-obsidian-950 font-semibold shadow-gold-glow"
+                : "bg-obsidian-950/70 text-ivory-muted hover:text-ivory border border-gold-900/40"
+            }`}
+          >
+            Vaddanam (వడ్డాణం)
           </button>
         </div>
 
@@ -478,6 +502,18 @@ export const CatalogGrid: React.FC<CatalogGridProps> = ({
                         <QrCode className="w-4 h-4" />
                       </button>
                     )}
+                    {onOpenCustomization && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenCustomization(item);
+                        }}
+                        className="p-2.5 rounded-full bg-obsidian-800 text-amber-300 hover:bg-gold-950 border border-amber-500/40 transition-transform hover:scale-110"
+                        title="Custom Karigar Design Markup (డిజైన్ మార్పులు)"
+                      >
+                        <Edit3 className="w-4 h-4 text-amber-300" />
+                      </button>
+                    )}
                     {item.isCustom && onEditItem && (
                       <button
                         onClick={(e) => {
@@ -570,6 +606,17 @@ export const CatalogGrid: React.FC<CatalogGridProps> = ({
                       <span>
                         {isEquippedInCombo ? "✓ Equipped in Set" : "+ Add to Bridal Set"}
                       </span>
+                    </button>
+                  )}
+
+                  {/* Custom Karigar Markup Button */}
+                  {onOpenCustomization && (
+                    <button
+                      onClick={() => onOpenCustomization(item)}
+                      className="w-full py-1.5 px-2 rounded-lg bg-gradient-to-r from-obsidian-950 via-gold-950/40 to-obsidian-950 hover:bg-gold-950/60 text-gold-300 border border-gold-500/30 hover:border-gold-400/50 text-[11px] font-medium flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <Edit3 className="w-3 h-3 text-gold-400" />
+                      <span>డిజైన్ మార్పులు (Karigar Markup)</span>
                     </button>
                   )}
                 </div>

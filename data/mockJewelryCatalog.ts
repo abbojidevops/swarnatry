@@ -3,7 +3,9 @@ export type JewelryCategory =
   | "necklaces"
   | "nose-rings"
   | "maang-tikka"
-  | "bangles";
+  | "bangles"
+  | "rings"
+  | "vaddanam";
 
 export type JewelryStyle =
   | "Temple"
@@ -32,7 +34,7 @@ export interface JewelryItem {
   description: string;
   craftsmanshipNote: string;
   gemstones: string;
-  anchorType: "earrings" | "necklace" | "nose" | "forehead" | "wrist";
+  anchorType: "earrings" | "necklace" | "nose" | "forehead" | "wrist" | "waist";
   // AR Transform Defaults
   defaultScale: number;
   defaultOffsetY: number;
@@ -685,6 +687,226 @@ export const MOCK_JEWELRY_CATALOG: JewelryItem[] = [
         <circle cx="375" cy="150" r="16" fill="url(#coinFace)" stroke="#7A560B" stroke-width="1.5" />
         <circle cx="375" cy="150" r="10" fill="none" stroke="#FFEAA7" stroke-width="1" />
         <circle cx="375" cy="150" r="4" fill="#8E182A" />
+      </g>
+    </svg>`,
+  },
+
+  // 9. Gajalakshmi Nakshi Royal Kada Bangles (Bangles)
+  {
+    id: "SW-BNG-401",
+    name: "Gajalakshmi Nakshi Royal Kada Bangles",
+    teluguName: "గజలక్ష్మి నక్షి రాజ కడియాలు / గాజులు",
+    hindiName: "गजलक्ष्मी नक्षी रॉयल कड़ा कंगन",
+    category: "bangles",
+    categoryLabel: "Bangles (Kadiyalu)",
+    style: "Nakshi",
+    minGrams: 28,
+    maxGrams: 48,
+    defaultGrams: 36,
+    purity: "22K",
+    wastagePercent: 12.5,
+    makingChargePerGram: 460,
+    stoneWeightGrams: 1.2,
+    stoneCostFlat: 4500,
+    description: "Solid antique 22K gold kada pair featuring twin roaring Gajalakshmi lion-head terminals, hand-chiseled floral vines, and cabochon ruby accents with a screw-pipe lock.",
+    craftsmanshipNote: "Crafted with internal hinge and safety screw-catch. Gram weight scales dynamically with standard Indian bangle sizes (2.2, 2.4, 2.6, 2.8, 2.10).",
+    gemstones: "Natural Cabochon Rubies, Untreated 22K Solid Gold",
+    anchorType: "wrist",
+    defaultScale: 1.0,
+    defaultOffsetY: 0,
+    defaultOffsetX: 0,
+    aspectRatio: 1.0,
+    svgContent: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+      <defs>
+        <radialGradient id="bangleGold" cx="40%" cy="40%" r="60%">
+          <stop offset="0%" stop-color="#FFF5C2" />
+          <stop offset="45%" stop-color="#D4AF37" />
+          <stop offset="85%" stop-color="#8F6A0F" />
+          <stop offset="100%" stop-color="#4A3403" />
+        </radialGradient>
+        <radialGradient id="bangleRuby" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#FF5277" />
+          <stop offset="60%" stop-color="#9E0B2B" />
+          <stop offset="100%" stop-color="#4A000E" />
+        </radialGradient>
+        <filter id="bangleShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.65"/>
+        </filter>
+      </defs>
+      <g filter="url(#bangleShadow)">
+        <!-- Outer Bangle Ring -->
+        <circle cx="200" cy="200" r="140" fill="none" stroke="url(#bangleGold)" stroke-width="32" stroke-linecap="round" />
+        <circle cx="200" cy="200" r="156" fill="none" stroke="#5E4204" stroke-width="2" />
+        <circle cx="200" cy="200" r="124" fill="none" stroke="#5E4204" stroke-width="2" />
+
+        <!-- Intricate Nakshi Embossed Floral Beads -->
+        <circle cx="200" cy="60" r="14" fill="url(#bangleRuby)" stroke="#FFEAA7" stroke-width="1.5" />
+        <circle cx="200" cy="340" r="14" fill="url(#bangleRuby)" stroke="#FFEAA7" stroke-width="1.5" />
+        <circle cx="60" cy="200" r="14" fill="url(#bangleRuby)" stroke="#FFEAA7" stroke-width="1.5" />
+        <circle cx="340" cy="200" r="14" fill="url(#bangleRuby)" stroke="#FFEAA7" stroke-width="1.5" />
+
+        <circle cx="100" cy="100" r="10" fill="url(#bangleGold)" stroke="#3B2801" stroke-width="1" />
+        <circle cx="300" cy="100" r="10" fill="url(#bangleGold)" stroke="#3B2801" stroke-width="1" />
+        <circle cx="100" cy="300" r="10" fill="url(#bangleGold)" stroke="#3B2801" stroke-width="1" />
+        <circle cx="300" cy="300" r="10" fill="url(#bangleGold)" stroke="#3B2801" stroke-width="1" />
+
+        <!-- Twin Terminal Medallion -->
+        <g transform="translate(200, 50)">
+          <rect x="-24" y="-12" width="48" height="24" rx="8" fill="url(#bangleGold)" stroke="#5E4204" stroke-width="2" />
+          <circle cx="0" cy="0" r="8" fill="url(#bangleRuby)" />
+          <circle cx="0" cy="0" r="4" fill="#FFFFFF" opacity="0.8" />
+        </g>
+      </g>
+    </svg>`,
+  },
+
+  // 10. Navaratna Royal Emperor Signet Ring (Rings)
+  {
+    id: "SW-RNG-501",
+    name: "Navaratna Royal Emperor Signet Ring",
+    teluguName: "నవరత్న రాజముద్రిక ఉంగరం",
+    hindiName: "नवरत्न राजसी अंगूठी",
+    category: "rings",
+    categoryLabel: "Rings (Ungaralu)",
+    style: "Kundan",
+    minGrams: 8,
+    maxGrams: 18,
+    defaultGrams: 12,
+    purity: "22K",
+    wastagePercent: 11.5,
+    makingChargePerGram: 490,
+    stoneWeightGrams: 1.5,
+    stoneCostFlat: 6500,
+    description: "Astrologically aligned royal Navaratna gold signet ring featuring untreated Ruby center surrounded by Diamond, Pearl, Red Coral, Emerald, Yellow Sapphire, Blue Sapphire, Hessonite, and Cat's Eye in 24K pure gold bezel settings.",
+    craftsmanshipNote: "Open backplate setting ensures gemstones make authentic skin contact for astrological potency while maintaining water-tight gold prongs.",
+    gemstones: "Ruby, Diamond, Pearl, Coral, Emerald, Yellow Sapphire, Blue Sapphire, Hessonite, Cat's Eye",
+    anchorType: "wrist",
+    defaultScale: 0.7,
+    defaultOffsetY: 0,
+    defaultOffsetX: 0,
+    aspectRatio: 1.0,
+    svgContent: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="100%" height="100%">
+      <defs>
+        <radialGradient id="ringBandGold" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#FFF2A3" />
+          <stop offset="50%" stop-color="#D4AF37" />
+          <stop offset="100%" stop-color="#6B4F09" />
+        </radialGradient>
+        <filter id="ringGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000000" flood-opacity="0.6"/>
+        </filter>
+      </defs>
+      <g filter="url(#ringGlow)">
+        <!-- Circular Ring Shank -->
+        <ellipse cx="160" cy="210" rx="95" ry="65" fill="none" stroke="url(#ringBandGold)" stroke-width="22" />
+        <ellipse cx="160" cy="210" rx="106" ry="76" fill="none" stroke="#5E4204" stroke-width="1.5" />
+
+        <!-- Octagonal Top Crest -->
+        <g transform="translate(160, 115)">
+          <rect x="-55" y="-55" width="110" height="110" rx="20" fill="url(#ringBandGold)" stroke="#4A3403" stroke-width="3" />
+          <rect x="-46" y="-46" width="92" height="92" rx="15" fill="#1C1405" stroke="#FFEAA7" stroke-width="1.5" />
+
+          <!-- Center Ruby (Sun) -->
+          <circle cx="0" cy="0" r="16" fill="#B91C1C" stroke="#FFEAA7" stroke-width="2" />
+          <circle cx="0" cy="0" r="8" fill="#EF4444" opacity="0.8" />
+
+          <!-- 8 Surrounding Gemstones -->
+          <!-- Diamond (East) -->
+          <circle cx="30" cy="0" r="9" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1" />
+          <!-- Blue Sapphire (South-East) -->
+          <circle cx="22" cy="22" r="9" fill="#1D4ED8" stroke="#FFEAA7" stroke-width="1" />
+          <!-- Cat's Eye (South) -->
+          <circle cx="0" cy="30" r="9" fill="#713F12" stroke="#FFEAA7" stroke-width="1" />
+          <!-- Yellow Sapphire (South-West) -->
+          <circle cx="-22" cy="22" r="9" fill="#FACC15" stroke="#FFEAA7" stroke-width="1" />
+          <!-- Emerald (West) -->
+          <circle cx="-30" cy="0" r="9" fill="#047857" stroke="#FFEAA7" stroke-width="1" />
+          <!-- Coral (North-West) -->
+          <circle cx="-22" cy="-22" r="9" fill="#EA580C" stroke="#FFEAA7" stroke-width="1" />
+          <!-- Pearl (North) -->
+          <circle cx="0" cy="-30" r="9" fill="#FFFBEB" stroke="#E2E8F0" stroke-width="1" />
+          <!-- Hessonite (North-East) -->
+          <circle cx="22" cy="-22" r="9" fill="#7C2D12" stroke="#FFEAA7" stroke-width="1" />
+        </g>
+      </g>
+    </svg>`,
+  },
+
+  // 11. Mayura Temple Heritage Bridal Vaddanam (Waist Belt)
+  {
+    id: "SW-VDN-601",
+    name: "Mayura Temple Heritage Bridal Vaddanam",
+    teluguName: "మయూర టెంపుల్ రాజ వడ్డాణం / ఒడ్డాణం",
+    hindiName: "मयूरा हेरिटेज ब्राइडल कमरबंद (वड्डाणम)",
+    category: "vaddanam",
+    categoryLabel: "Vaddanam (Waist Belt)",
+    style: "Temple",
+    minGrams: 75,
+    maxGrams: 140,
+    defaultGrams: 98,
+    purity: "22K",
+    wastagePercent: 13.5,
+    makingChargePerGram: 520,
+    stoneWeightGrams: 3.5,
+    stoneCostFlat: 12000,
+    description: "Grand royal South Indian bridal waist belt sculpted with Dancing Peacocks, Goddess Lakshmi enthroned under a five-headed Sheshanaga arch, framed by kempu rubies and swinging bell ghungroos.",
+    craftsmanshipNote: "Engineered with triple-reinforcement solid links and adjustable hook extension chain to fit waist sizes from 26 inches to 40 inches comfortably.",
+    gemstones: "Burmese Cabochon Rubies, Zambian Emeralds, Fresh Water Pearl Drops",
+    anchorType: "waist",
+    defaultScale: 1.25,
+    defaultOffsetY: 90,
+    defaultOffsetX: 0,
+    aspectRatio: 1.8,
+    svgContent: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 320" width="100%" height="100%">
+      <defs>
+        <linearGradient id="vaddanamGold" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#6E4D07" />
+          <stop offset="20%" stop-color="#ECC657" />
+          <stop offset="50%" stop-color="#FFF2A3" />
+          <stop offset="80%" stop-color="#ECC657" />
+          <stop offset="100%" stop-color="#6E4D07" />
+        </linearGradient>
+        <radialGradient id="vaddanamRuby" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#FF5277" />
+          <stop offset="65%" stop-color="#9E0B2B" />
+          <stop offset="100%" stop-color="#4A000E" />
+        </radialGradient>
+        <filter id="vaddanamGlow" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000000" flood-opacity="0.6"/>
+        </filter>
+      </defs>
+      <g filter="url(#vaddanamGlow)">
+        <!-- Belt Arc Band -->
+        <path d="M 40 110 Q 300 160, 560 110" fill="none" stroke="url(#vaddanamGold)" stroke-width="26" stroke-linecap="round" />
+        <path d="M 45 110 Q 300 160, 555 110" fill="none" stroke="#5E4204" stroke-width="2" stroke-dasharray="6 6" />
+
+        <!-- Flanking Floral Stations -->
+        <circle cx="120" cy="122" r="14" fill="url(#vaddanamRuby)" stroke="#FFEAA7" stroke-width="1.5" />
+        <circle cx="190" cy="132" r="15" fill="url(#vaddanamGold)" stroke="#5E4204" stroke-width="2" />
+        <circle cx="410" cy="132" r="15" fill="url(#vaddanamGold)" stroke="#5E4204" stroke-width="2" />
+        <circle cx="480" cy="122" r="14" fill="url(#vaddanamRuby)" stroke="#FFEAA7" stroke-width="1.5" />
+
+        <!-- Grand Central Temple Medallion -->
+        <g transform="translate(300, 150)">
+          <!-- Royal Arch -->
+          <path d="M -60 20 C -60 -60, 60 -60, 60 20 Z" fill="url(#vaddanamGold)" stroke="#4A3403" stroke-width="3" />
+          <path d="M -48 18 C -48 -45, 48 -45, 48 18 Z" fill="#6B0B1D" stroke="#FFEAA7" stroke-width="1.5" />
+
+          <!-- Goddess Lakshmi Center Emboss -->
+          <circle cx="0" cy="-14" r="14" fill="url(#vaddanamGold)" stroke="#382502" stroke-width="1.5" />
+          <path d="M -16 12 C -10 -4, 10 -4, 16 12 Z" fill="url(#vaddanamGold)" />
+
+          <!-- Flanking Peacocks -->
+          <path d="M -75 -10 Q -55 -30, -50 -8 Z" fill="url(#vaddanamGold)" stroke="#382502" stroke-width="1" />
+          <path d="M 75 -10 Q 55 -30, 50 -8 Z" fill="url(#vaddanamGold)" stroke="#382502" stroke-width="1" />
+
+          <!-- Hanging Pearl & Golden Jhumki Ghungroos -->
+          <circle cx="-36" cy="36" r="6" fill="#FFFDF2" stroke="#D4AF37" stroke-width="1" />
+          <circle cx="-18" cy="42" r="7" fill="#FFFDF2" stroke="#D4AF37" stroke-width="1" />
+          <circle cx="0" cy="48" r="9" fill="url(#vaddanamRuby)" stroke="#FFEAA7" stroke-width="1.5" />
+          <circle cx="18" cy="42" r="7" fill="#FFFDF2" stroke="#D4AF37" stroke-width="1" />
+          <circle cx="36" cy="36" r="6" fill="#FFFDF2" stroke="#D4AF37" stroke-width="1" />
+        </g>
       </g>
     </svg>`,
   },

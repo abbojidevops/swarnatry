@@ -8,6 +8,10 @@ import { CatalogGrid } from "@/components/CatalogGrid";
 import { LiveARTryOn } from "@/components/LiveARTryOn";
 import { CustomPhotoTryOn } from "@/components/CustomPhotoTryOn";
 import { GoldCalculatorModal } from "@/components/GoldCalculatorModal";
+import {
+  KarigarCustomizationModal,
+  KarigarCustomizationResult,
+} from "@/components/KarigarCustomizationModal";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
 import { AdminUploadStudio } from "@/components/AdminUploadStudio";
 import { ShareDesignModal } from "@/components/ShareDesignModal";
@@ -156,6 +160,15 @@ export default function Home() {
   const [shareItem, setShareItem] = useState<JewelryItem | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
   const [showroomMode, setShowroomMode] = useState<boolean>(false);
+
+  // Karigar Customization & Redline Markup Pad State (Phase 8)
+  const [customizingItem, setCustomizingItem] = useState<JewelryItem | null>(null);
+  const [isCustomizationOpen, setIsCustomizationOpen] = useState<boolean>(false);
+
+  const handleOpenCustomization = (item: JewelryItem) => {
+    setCustomizingItem(item);
+    setIsCustomizationOpen(true);
+  };
 
   // Old Gold Exchange, Print Estimates & Order Ledger (Phase 3C)
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
@@ -481,6 +494,7 @@ export default function Home() {
         ordersCount={ordersCount}
         onOpenTour={() => setIsOnboardingOpen(true)}
         onInstallPWA={isInstallable && !isStandalone ? handleTriggerInstall : undefined}
+        festiveOffer={showroomSettings.festiveOffer}
       />
 
       {/* Partner Showroom Rebranded Welcome Banner (Phase 5) */}
@@ -576,6 +590,7 @@ export default function Home() {
               bridalSlots={bridalSlots}
               onEquipSlot={handleEquipSlot}
               onOpenBridalDrawer={() => setIsBridalDrawerOpen(true)}
+              onOpenCustomization={handleOpenCustomization}
             />
           </div>
         )}
@@ -739,6 +754,49 @@ export default function Home() {
         onOpenShareModal={handleOpenShareModal}
         onOpenPrintEstimate={handleOpenPrintEstimate}
         onBookOrder={handleBookOrder}
+        festiveOffer={showroomSettings.festiveOffer}
+        onOpenCustomization={handleOpenCustomization}
+      />
+
+      {/* Karigar Customization & Redline Markup Pad Modal (Phase 8) */}
+      <KarigarCustomizationModal
+        item={customizingItem}
+        isOpen={isCustomizationOpen}
+        onClose={() => {
+          setIsCustomizationOpen(false);
+          setCustomizingItem(null);
+        }}
+        goldRate22K={showroomSettings.goldRate22K}
+        goldRate24K={showroomSettings.goldRate24K}
+        showroomName={showroomSettings.showroomName}
+        onOpenCalculator={(item: JewelryItem) => {
+          setIsCustomizationOpen(false);
+          setCalculatorItem(item);
+          setIsCalculatorOpen(true);
+        }}
+        onSaveAttachment={(data: KarigarCustomizationResult) => {
+          if (data.annotatedImageUri) {
+            setOrderPrefillData({
+              items: [
+                {
+                  id: (customizingItem?.id || "CUSTOM") + "-MOD",
+                  name: (customizingItem?.name || "Custom Design") + " (Karigar Modified)",
+                  teluguName: customizingItem?.teluguName,
+                  category: customizingItem?.categoryLabel || "Jewelry",
+                  grams: data.totalGrams,
+                  purity: "22K",
+                  imageUri: data.annotatedImageUri,
+                  price: Math.round(data.totalGrams * showroomSettings.goldRate22K * 1.15),
+                },
+              ],
+              totalGrossGrams: data.totalGrams,
+              totalNetGrams: data.totalGrams,
+              grandTotalEstimate: Math.round(data.totalGrams * showroomSettings.goldRate22K * 1.15),
+              customNotes: data.customNotes,
+            });
+            setIsOrderLedgerOpen(true);
+          }
+        }}
       />
 
       {/* Printable Showroom Estimate Slip & Thermal Receipt Modal (Phase 3C) */}

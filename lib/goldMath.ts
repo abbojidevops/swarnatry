@@ -504,3 +504,40 @@ export function sanitizePhoneNumber(phone: string): string {
   if (digits.length === 11 && digits.startsWith("0")) return "91" + digits.substring(1);
   return digits;
 }
+
+/**
+ * Phase 8: Standard Indian Bangle Sizing & Weight Scaling Engine
+ * Indian jewelry standards: 2.2 = 2-2/16" (54mm), 2.4 = 2-4/16" (57.2mm),
+ * 2.6 = 2-6/16" (60.3mm baseline), 2.8 = 2-8/16" (63.5mm), 2.10 = 2-10/16" (66.7mm)
+ */
+export type BangleSize = "2.2" | "2.4" | "2.6" | "2.8" | "2.10";
+
+export interface BangleSizeConfig {
+  size: BangleSize;
+  diameterMm: number;
+  weightMultiplier: number;
+  scaleFactor?: number;
+  label: string;
+  teluguLabel: string;
+  labelTe?: string;
+}
+
+export const BANGLE_SIZES: Record<BangleSize, BangleSizeConfig> = {
+  "2.2": { size: "2.2", diameterMm: 54.0, weightMultiplier: 0.92, scaleFactor: 0.92, label: "2.2 (54 mm - Small)", teluguLabel: "2.2 (చిన్న సైజు)", labelTe: "2.2 (చిన్నది)" },
+  "2.4": { size: "2.4", diameterMm: 57.2, weightMultiplier: 0.96, scaleFactor: 0.96, label: "2.4 (57 mm - Medium)", teluguLabel: "2.4 (మధ్యమ సైజు)", labelTe: "2.4 (మధ్యస్థం)" },
+  "2.6": { size: "2.6", diameterMm: 60.3, weightMultiplier: 1.00, scaleFactor: 1.00, label: "2.6 (60 mm - Standard)", teluguLabel: "2.6 (ప్రామాణిక సైజు)", labelTe: "2.6 (ప్రామాణికం)" },
+  "2.8": { size: "2.8", diameterMm: 63.5, weightMultiplier: 1.05, scaleFactor: 1.05, label: "2.8 (63.5 mm - Large)", teluguLabel: "2.8 (పెద్ద సైజు)", labelTe: "2.8 (పెద్దది)" },
+  "2.10": { size: "2.10", diameterMm: 66.7, weightMultiplier: 1.10, scaleFactor: 1.10, label: "2.10 (67 mm - Broad)", teluguLabel: "2.10 (వెడల్పు సైజు)", labelTe: "2.10 (వెడల్పు)" },
+};
+
+export const BANGLE_SIZES_LIST: BangleSizeConfig[] = Object.values(BANGLE_SIZES);
+
+export function calculateBangleWeight(
+  baseGrams: number,
+  size: BangleSize = "2.6",
+  stackCount: number = 1
+): number {
+  const cfg = BANGLE_SIZES[size] || BANGLE_SIZES["2.6"];
+  const singleWeight = baseGrams * cfg.weightMultiplier;
+  return Math.round(singleWeight * stackCount * 10) / 10;
+}

@@ -59,6 +59,8 @@ import {
   Search,
   Filter,
   Zap,
+  Gift,
+  Tag,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import {
@@ -66,7 +68,13 @@ import {
   savePaymentSettings,
   PaymentSettings,
 } from "@/lib/paymentGateway";
-import { saveShowroomSettings, getLocalShowroomSettings } from "@/lib/goldRateStore";
+import {
+  saveShowroomSettings,
+  getLocalShowroomSettings,
+  FESTIVE_CAMPAIGN_PRESETS,
+  FestiveOffer,
+  updateFestiveOffer,
+} from "@/lib/goldRateStore";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   getLeads,
@@ -409,6 +417,14 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
   const [gstOnMakingInput, setGstOnMakingInput] = useState<boolean>(() => {
     return Boolean(getLocalShowroomSettings().gstOnMakingOnly);
   });
+  const [selectedFestivePresetId, setSelectedFestivePresetId] = useState<string>(() => {
+    const current = getLocalShowroomSettings().festiveOffer;
+    return current?.id || FESTIVE_CAMPAIGN_PRESETS[0].id;
+  });
+  const [isFestiveActive, setIsFestiveActive] = useState<boolean>(() => {
+    const current = getLocalShowroomSettings().festiveOffer;
+    return current !== undefined ? Boolean(current.enabled ?? current.isActive ?? true) : true;
+  });
   const [settingsSavedSuccess, setSettingsSavedSuccess] = useState<boolean>(false);
 
   // Multi-Showroom Partner Shareable Links State (Phase 5)
@@ -528,6 +544,8 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
       "nose-rings": "SW-NTH",
       "maang-tikka": "SW-TIK",
       bangles: "SW-VNK",
+      rings: "SW-RNG",
+      vaddanam: "SW-VDN",
     };
     const prefix = prefixMap[cat] || "SW-CUS";
     const rand = Math.floor(100 + Math.random() * 900);
@@ -583,7 +601,19 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
       showroomAddress: addressInput.trim(),
     });
     setPaySettings(updated);
-    saveShowroomSettings({ gstOnMakingOnly: gstOnMakingInput });
+    const foundOffer =
+      FESTIVE_CAMPAIGN_PRESETS.find((p) => p.id === selectedFestivePresetId) ||
+      FESTIVE_CAMPAIGN_PRESETS[0];
+    const fullOffer: FestiveOffer = {
+      ...foundOffer,
+      enabled: isFestiveActive,
+      isActive: isFestiveActive,
+    };
+    saveShowroomSettings({
+      gstOnMakingOnly: gstOnMakingInput,
+      festiveOffer: fullOffer,
+    });
+    updateFestiveOffer(fullOffer);
     setSettingsSavedSuccess(true);
     confetti({
       particleCount: 50,
@@ -896,13 +926,15 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
 
     const anchorMap: Record<
       JewelryCategory,
-      "earrings" | "necklace" | "nose" | "forehead" | "wrist"
+      "earrings" | "necklace" | "nose" | "forehead" | "wrist" | "waist"
     > = {
       earrings: "earrings",
       necklaces: "necklace",
       "nose-rings": "nose",
       "maang-tikka": "forehead",
       bangles: "wrist",
+      rings: "wrist",
+      vaddanam: "waist",
     };
 
     const categoryLabelMap: Record<JewelryCategory, string> = {
@@ -911,6 +943,8 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
       "nose-rings": "Nose Rings (Mukku Pudaka/Nath)",
       "maang-tikka": "Maang Tikka (Papidi Billa)",
       bangles: "Bangles / Vanki",
+      rings: "Rings (ఉంగరాలు)",
+      vaddanam: "Vaddanam / Waistbelt (వడ్డాణం)",
     };
 
     const newOrnament: JewelryItem = {
@@ -1740,6 +1774,87 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
                     />
                     <div className="w-11 h-6 bg-obsidian-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-obsidian-950 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-ivory after:border-gold-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gold-500"></div>
                   </label>
+                </div>
+              </div>
+
+              {/* Feature C: Showroom Festive & Muhurtham Offer Engine (Phase 8) */}
+              <div className="rounded-2xl bg-obsidian-950/80 border border-gold-subtle p-5 space-y-4">
+                <div className="border-b border-gold-900/60 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="font-cinzel text-base font-bold text-ivory flex items-center gap-2">
+                      <Gift className="w-4 h-4 text-gold-400" />
+                      <span>Festive &amp; Muhurtham Offer Campaign (పండుగ ఆఫర్లు)</span>
+                    </h4>
+                    <p className="text-xs text-ivory-muted">
+                      Automate discounts on wastage (VA%) or making charges during wedding muhurthams &amp; festival seasons.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-ivory-muted font-medium">
+                      {isFestiveActive ? "Campaign Active" : "Inactive"}
+                    </span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isFestiveActive}
+                        onChange={(e) => {
+                          setIsFestiveActive(e.target.checked);
+                          const found =
+                            FESTIVE_CAMPAIGN_PRESETS.find(
+                              (p) => p.id === selectedFestivePresetId
+                            ) || FESTIVE_CAMPAIGN_PRESETS[0];
+                          updateFestiveOffer({
+                            ...found,
+                            enabled: e.target.checked,
+                            isActive: e.target.checked,
+                          });
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-obsidian-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-obsidian-950 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-ivory after:border-gold-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Presets Grid */}
+                <div className="space-y-2">
+                  <label className="text-xs text-ivory-muted block">Select Campaign Preset:</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {FESTIVE_CAMPAIGN_PRESETS.map((preset) => {
+                      const isSelected = selectedFestivePresetId === preset.id;
+                      return (
+                        <div
+                          key={preset.id}
+                          onClick={() => {
+                            setSelectedFestivePresetId(preset.id);
+                            updateFestiveOffer({
+                              ...preset,
+                              enabled: isFestiveActive,
+                              isActive: isFestiveActive,
+                            });
+                          }}
+                          className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                            isSelected
+                              ? "bg-gold-500/15 border-gold-400 shadow-gold-glow"
+                              : "bg-obsidian-900 border-gold-900/40 hover:border-gold-500/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-ivory">
+                              {preset.title || preset.name}
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-gold-500/20 text-gold-300 font-bold border border-gold-500/40">
+                              {preset.badgeText || preset.bannerText}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-ivory-muted mt-1 leading-relaxed">
+                            {preset.teluguTitle || preset.nameTe} • {preset.validUntil}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 

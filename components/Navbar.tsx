@@ -22,9 +22,13 @@ import {
   HelpCircle,
   Smartphone,
   Languages,
+  Tag,
+  Gift,
+  X,
 } from "lucide-react";
 import { formatINR, DEFAULT_GOLD_CONFIG } from "@/lib/goldMath";
 import { CloudSyncStatus } from "@/lib/catalogStore";
+import { FestiveOffer } from "@/lib/goldRateStore";
 import { useLanguage } from "@/context/LanguageContext";
 
 interface NavbarProps {
@@ -49,6 +53,7 @@ interface NavbarProps {
   ordersCount?: number;
   onOpenTour?: () => void;
   onInstallPWA?: () => void;
+  festiveOffer?: FestiveOffer;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -73,8 +78,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   ordersCount = 0,
   onOpenTour,
   onInstallPWA,
+  festiveOffer,
 }) => {
   const { isTe, toggleLanguage } = useLanguage();
+  const [isPromoDismissed, setIsPromoDismissed] = useState(false);
   const [isEditingRate, setIsEditingRate] = useState(false);
   const [temp22K, setTemp22K] = useState(goldRate22K.toString());
   const [temp24K, setTemp24K] = useState(goldRate24K.toString());
@@ -467,6 +474,49 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Royal Gold Festive & Muhurtham Offer Ribbon */}
+      {festiveOffer && (festiveOffer.enabled ?? festiveOffer.isActive) && !isPromoDismissed && (
+        <div className="bg-gradient-to-r from-obsidian-950 via-gold-950/70 to-obsidian-950 border-b border-gold-500/30 px-3 sm:px-6 py-1.5 text-xs flex items-center justify-between text-gold-200 shadow-inner">
+          <div className="flex items-center gap-2 overflow-hidden truncate">
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gold-500/20 border border-gold-400/40 text-[10px] sm:text-xs font-bold text-gold-300 shrink-0 uppercase tracking-wider animate-pulse">
+              <Gift className="w-3 h-3 text-gold-400" />
+              <span>{isTe ? "పండుగ ఆఫర్" : "Festive Offer"}</span>
+            </span>
+            <span className="font-semibold text-white truncate text-[11px] sm:text-xs">
+              {isTe
+                ? festiveOffer.teluguTitle || festiveOffer.nameTe || festiveOffer.title
+                : festiveOffer.title || festiveOffer.name}
+            </span>
+            <span className="hidden md:inline text-gold-400/50">•</span>
+            <span className="hidden md:inline font-bold text-amber-300 text-[11px] sm:text-xs bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+              {isTe
+                ? festiveOffer.badgeTextTe || festiveOffer.bannerTextTelugu
+                : festiveOffer.badgeText || festiveOffer.bannerText}
+            </span>
+            {festiveOffer.validUntil && (
+              <span className="hidden lg:inline text-gold-300/70 text-[10px]">
+                ({festiveOffer.validUntil})
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            <button
+              onClick={() => setActiveTab("catalog")}
+              className="text-[10px] sm:text-xs font-bold text-gold-300 hover:text-white underline decoration-gold-400/50 underline-offset-2 transition-colors"
+            >
+              {isTe ? "ఆభరణాలు చూడండి →" : "Explore Designs →"}
+            </button>
+            <button
+              onClick={() => setIsPromoDismissed(true)}
+              className="text-ivory-muted hover:text-white p-0.5 rounded hover:bg-white/10 transition-colors"
+              title={isTe ? "మూసివేయి" : "Dismiss"}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

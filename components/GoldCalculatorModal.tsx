@@ -22,6 +22,9 @@ import {
   Users,
   PiggyBank,
   Heart,
+  Edit3,
+  Tag,
+  Gift,
 } from "lucide-react";
 import { JewelryItem, getJewelryImageUri } from "@/data/mockJewelryCatalog";
 import {
@@ -36,7 +39,12 @@ import {
   calculateOldGoldItem,
   calculateOldGoldExchange,
   roundRupee,
+  BangleSize,
+  BANGLE_SIZES,
+  BANGLE_SIZES_LIST,
+  calculateBangleWeight,
 } from "@/lib/goldMath";
+import { FestiveOffer, calculateFestiveDiscount } from "@/lib/goldRateStore";
 import { OldGoldExchangePanel } from "@/components/OldGoldExchangePanel";
 import { useLanguage } from "@/context/LanguageContext";
 import { GoldSchemePlanner } from "@/components/GoldSchemePlanner";
@@ -55,6 +63,8 @@ interface GoldCalculatorModalProps {
   onOpenShareModal?: (item: JewelryItem) => void;
   onOpenPrintEstimate?: (estimateData: any) => void;
   onBookOrder?: (orderData: any) => void;
+  festiveOffer?: FestiveOffer;
+  onOpenCustomization?: (item: JewelryItem) => void;
 }
 
 export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
@@ -69,10 +79,14 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
   onOpenShareModal,
   onOpenPrintEstimate,
   onBookOrder,
+  festiveOffer,
+  onOpenCustomization,
 }) => {
   if (!isOpen || !item) return null;
 
   const [selectedGrams, setSelectedGrams] = useState<number>(item.defaultGrams);
+  const [bangleSize, setBangleSize] = useState<BangleSize>("2.6");
+  const [bangleStackCount, setBangleStackCount] = useState<number>(2);
   const [selectedPurity, setSelectedPurity] = useState<"22K" | "24K" | "18K">(
     item.purity || "22K"
   );
@@ -122,11 +136,28 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
     gstPercent: 3.0,
   };
 
+  // Effective grams (scaled by bangle size and stack count if category is bangles)
+  const effectiveGrams =
+    item.category === "bangles"
+      ? calculateBangleWeight(selectedGrams, bangleSize, bangleStackCount)
+      : selectedGrams;
+
   const breakdown: PriceBreakdown = calculateGoldPrice(
-    selectedGrams,
+    effectiveGrams,
     selectedPurity,
     config
   );
+
+  // Festive & Muhurtham Offer calculation
+  const festiveDiscount = calculateFestiveDiscount(
+    effectiveGrams,
+    wastagePercent,
+    makingCharge,
+    breakdown.goldRatePerGram,
+    festiveOffer
+  );
+  const festiveSavings = festiveDiscount.discountAmount;
+  const finalPrice = Math.max(0, breakdown.totalEstimatedPrice - festiveSavings);
 
   // Recalculate old gold items whenever live rate or items change
   const liveOldGoldItems: OldGoldItem[] = (oldGold?.items || []).map((it) =>
@@ -148,14 +179,14 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
 
   const oldGoldSummary = calculateOldGoldExchange(
     liveOldGoldItems,
-    breakdown.totalEstimatedPrice,
+    finalPrice,
     breakdown.netGoldGrams
   );
 
   const currentTradeInValue = oldGold ? oldGoldSummary.totalExchangeValue : 0;
-  const netPayable = Math.max(0, breakdown.totalEstimatedPrice - currentTradeInValue);
-  const creditCarryForward = currentTradeInValue > breakdown.totalEstimatedPrice
-    ? currentTradeInValue - breakdown.totalEstimatedPrice
+  const netPayable = Math.max(0, finalPrice - currentTradeInValue);
+  const creditCarryForward = currentTradeInValue > finalPrice
+    ? currentTradeInValue - finalPrice
     : 0;
 
   const handleApplyOldGold = (tradeInValue: number, summary: OldGoldExchangeSummary) => {
@@ -203,18 +234,7 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
   }
 
   const handleShareWhatsApp = () => {
-    const encoded = generateWhatsAppQuote(
-      item.id,
-      language === "te" && item.teluguName ? item.teluguName : item.name,
-      breakdown,
-      showroomName,
-      language
-    );
-    window.open(`https://wa.me/?text=${encoded}`, "_blank");
-  };
-
-  const handleCopyQuote = () => {
-    const text = decodeURIComponent(
+    let quote = decodeURIComponent(
       generateWhatsAppQuote(
         item.id,
         language === "te" && item.teluguName ? item.teluguName : item.name,
@@ -223,7 +243,36 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
         language
       )
     );
-    navigator.clipboard.writeText(text);
+    if (item.category === "bangles") {
+      quote += `\n📏 *Bangle Size:* ${bangleSize} | *Stack:* ${bangleStackCount} ${bangleStackCount === 1 ? "Pc" : bangleStackCount === 2 ? "Pair (2 Pcs)" : "Set of 4"}`;
+    }
+    if (festiveSavings > 0) {
+      const offerTitle = festiveOffer?.title || festiveOffer?.name || "Festive Offer";
+      const offerBadge = festiveOffer?.bannerText || festiveOffer?.badgeText || "Special Discount";
+      quote += `\n🎉 *Festive Offer (${offerTitle}):* -${formatINR(festiveSavings)} OFF (${offerBadge})\n✨ *Final Festive Payable:* ${formatINR(finalPrice)}`;
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(quote)}`, "_blank");
+  };
+
+  const handleCopyQuote = () => {
+    let quote = decodeURIComponent(
+      generateWhatsAppQuote(
+        item.id,
+        language === "te" && item.teluguName ? item.teluguName : item.name,
+        breakdown,
+        showroomName,
+        language
+      )
+    );
+    if (item.category === "bangles") {
+      quote += `\n📏 Bangle Size: ${bangleSize} | Stack: ${bangleStackCount} ${bangleStackCount === 1 ? "Pc" : bangleStackCount === 2 ? "Pair (2 Pcs)" : "Set of 4"}`;
+    }
+    if (festiveSavings > 0) {
+      const offerTitle = festiveOffer?.title || festiveOffer?.name || "Festive Offer";
+      const offerBadge = festiveOffer?.bannerText || festiveOffer?.badgeText || "Special Discount";
+      quote += `\n🎉 Festive Offer (${offerTitle}): -${formatINR(festiveSavings)} OFF (${offerBadge})\nFinal Festive Payable: ${formatINR(finalPrice)}`;
+    }
+    navigator.clipboard.writeText(quote);
     setCopiedQuote(true);
     setTimeout(() => setCopiedQuote(false), 2500);
   };
@@ -249,8 +298,10 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
             makingCharges: breakdown.makingCharges,
             stoneCost: breakdown.stoneCost,
             gstAmount: breakdown.gstAmount,
-            totalEstimatedPrice: breakdown.totalEstimatedPrice,
+            totalEstimatedPrice: finalPrice,
             imageUri: getJewelryImageUri(item),
+            festiveDiscount: festiveSavings > 0 ? festiveSavings : undefined,
+            festiveBadge: festiveOffer?.bannerText || festiveOffer?.badgeText,
           },
         ],
         oldGoldSummary: oldGoldSummary.totalExchangeValue > 0 ? oldGoldSummary : null,
@@ -273,16 +324,16 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
             grams: breakdown.grossGrams,
             purity: breakdown.purity,
             imageUri: getJewelryImageUri(item),
-            price: breakdown.totalEstimatedPrice,
+            price: finalPrice,
           },
         ],
         totalGrossGrams: breakdown.grossGrams,
         totalNetGrams: breakdown.netGoldGrams,
-        grandTotalEstimate: breakdown.totalEstimatedPrice,
-        advanceCashPaid: Math.round(breakdown.totalEstimatedPrice * 0.25),
+        grandTotalEstimate: finalPrice,
+        advanceCashPaid: Math.round(finalPrice * 0.25),
         advanceOldGoldGrams: oldGoldSummary ? oldGoldSummary.totalNetGrams : 0,
-        balancePayable: oldGoldSummary && oldGoldSummary.totalExchangeValue > 0 ? oldGoldSummary.netPayableAfterExchange : breakdown.totalEstimatedPrice,
-        customNotes: `Custom order for ${item.name} (${breakdown.purity} Gold, Gross: ${breakdown.grossGrams}g, Net: ${breakdown.netGoldGrams}g).`,
+        balancePayable: oldGoldSummary && oldGoldSummary.totalExchangeValue > 0 ? oldGoldSummary.netPayableAfterExchange : finalPrice,
+        customNotes: `Custom order for ${item.name} (${breakdown.purity} Gold, Gross: ${breakdown.grossGrams}g, Net: ${breakdown.netGoldGrams}g)${item.category === "bangles" ? `, Bangle Size ${bangleSize}, Stack of ${bangleStackCount}` : ""}${festiveSavings > 0 ? `, Festive Promo Applied (-${formatINR(festiveSavings)})` : ""}.`,
       });
     }
   };
@@ -542,6 +593,77 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
                 </div>
               </div>
 
+              {/* Bangle Size & Stack Selector (Phase 8 - When item is Bangles) */}
+              {item.category === "bangles" && (
+                <div className="p-4 rounded-xl bg-gradient-to-r from-obsidian-950 via-gold-950/30 to-obsidian-950 border border-gold-500/40 space-y-3 shadow-inner">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-gold-400" />
+                      <span className="text-xs font-semibold text-ivory uppercase tracking-wider">
+                        {language === "te" ? "గాజుల సైజు & సంఖ్య (Bangles):" : "Bangle Size & Stack Count:"}
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold text-gold-300 font-mono">
+                      Total: {effectiveGrams.toFixed(1)}g
+                    </span>
+                  </div>
+
+                  {/* Bangle Sizes */}
+                  <div className="space-y-1">
+                    <div className="text-[11px] text-ivory-muted flex justify-between">
+                      <span>{language === "te" ? "ప్రామాణిక సైజు (వ్యాసం):" : "Standard Indian Size (Diameter):"}</span>
+                      <span className="text-gold-300 font-medium">
+                        {BANGLE_SIZES[bangleSize]?.teluguLabel || BANGLE_SIZES[bangleSize]?.label} ({BANGLE_SIZES[bangleSize]?.diameterMm}mm)
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {BANGLE_SIZES_LIST.map((sz) => (
+                        <button
+                          key={sz.size}
+                          type="button"
+                          onClick={() => setBangleSize(sz.size)}
+                          className={`py-1.5 px-2 rounded-lg text-xs font-medium border text-center transition-all ${
+                            bangleSize === sz.size
+                              ? "bg-gold-500/25 border-gold-400 text-gold-200 font-bold shadow-gold-glow"
+                              : "bg-obsidian-900 border-gold-900/60 text-ivory-muted hover:border-gold-700"
+                          }`}
+                        >
+                          <div>{sz.size}</div>
+                          <div className="text-[9px] text-ivory-muted/70">{sz.diameterMm}mm</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Stack Count (1, 2, 4) */}
+                  <div className="space-y-1 pt-1 border-t border-gold-900/40">
+                    <div className="text-[11px] text-ivory-muted flex justify-between">
+                      <span>{language === "te" ? "గాజుల సంఖ్య:" : "Stack Count:"}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { count: 1, labelEn: "1 Single Kadiyam", labelTe: "సింగిల్ కడియం (1)" },
+                        { count: 2, labelEn: "1 Pair (2 Bangles)", labelTe: "జత గాజులు (2)" },
+                        { count: 4, labelEn: "Set of 4 Bangles", labelTe: "4 గాజుల సెట్ (4)" },
+                      ].map((st) => (
+                        <button
+                          key={st.count}
+                          type="button"
+                          onClick={() => setBangleStackCount(st.count)}
+                          className={`py-1.5 px-2 rounded-lg text-xs font-medium border text-center transition-all ${
+                            bangleStackCount === st.count
+                              ? "bg-gold-500/25 border-gold-400 text-gold-200 font-bold shadow-gold-glow"
+                              : "bg-obsidian-900 border-gold-900/60 text-ivory-muted hover:border-gold-700"
+                          }`}
+                        >
+                          {language === "te" ? st.labelTe : st.labelEn}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Weight Slider (Gross Grams) */}
               <div className="p-4 rounded-xl bg-obsidian-950/80 border border-gold-subtle space-y-3">
                 <div className="flex items-center justify-between">
@@ -749,9 +871,30 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
                     </div>
 
                     <div className="text-right">
-                      <span className="text-xl sm:text-2xl font-bold font-cinzel text-gold-bright tracking-tight">
-                        {formatINR(breakdown.totalEstimatedPrice)}
-                      </span>
+                      {festiveSavings > 0 ? (
+                        <div>
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-xs sm:text-sm line-through text-ivory-muted font-cinzel">
+                              {formatINR(breakdown.totalEstimatedPrice)}
+                            </span>
+                            <span className="text-xl sm:text-2xl font-bold font-cinzel text-gold-bright tracking-tight">
+                              {formatINR(finalPrice)}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-emerald-400 font-semibold flex items-center justify-end gap-1 mt-0.5">
+                            <Gift className="w-3 h-3 text-emerald-400" />
+                            <span>
+                              {language === "te"
+                                ? `పండుగ తగ్గింపు: ${formatINR(festiveSavings)} ఆదా!`
+                                : `Festive Offer: You Save ${formatINR(festiveSavings)}!`}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xl sm:text-2xl font-bold font-cinzel text-gold-bright tracking-tight">
+                          {formatINR(breakdown.totalEstimatedPrice)}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -791,7 +934,7 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
               <OldGoldExchangePanel
                 goldRate22K={goldRate22K}
                 goldRate24K={goldRate24K}
-                newPurchaseTotal={breakdown.totalEstimatedPrice}
+                newPurchaseTotal={finalPrice}
                 newPurchaseNetGrams={breakdown.netGoldGrams}
                 exchangeItems={liveOldGoldItems}
                 onChangeItems={(newItems) => {
@@ -800,7 +943,7 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
                   } else {
                     const summary = calculateOldGoldExchange(
                       newItems,
-                      breakdown.totalEstimatedPrice,
+                      finalPrice,
                       breakdown.netGoldGrams
                     );
                     setOldGold({
@@ -815,6 +958,22 @@ export const GoldCalculatorModal: React.FC<GoldCalculatorModalProps> = ({
 
               {/* Action Toolbar: WhatsApp Quote & Copy & QR & Print & Book Order */}
               <div className="flex items-center gap-2 pt-1 flex-wrap">
+                {/* Karigar Customization Markup */}
+                {onOpenCustomization && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenCustomization(item);
+                    }}
+                    className="bg-gold-500/15 hover:bg-gold-500/25 text-gold-300 py-2.5 px-3 rounded-xl text-xs flex items-center gap-1.5 border border-gold-500/40 hover:border-gold-400 transition-colors font-semibold"
+                    title="Open Karigar Customization & Redline Markup Pad"
+                  >
+                    <Edit3 className="w-4 h-4 text-gold-400" />
+                    <span>{language === "te" ? "డిజైన్ మార్పులు (Karigar)" : "Customize Design"}</span>
+                  </button>
+                )}
+
                 {/* Feature C: Ask Family Vote Button */}
                 <button
                   type="button"
