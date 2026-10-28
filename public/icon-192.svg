@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="192" height="192">
+  <defs>
+    <radialGradient id="bgGlow192" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1A1820" />
+      <stop offset="100%" stop-color="#0B0B0E" />
+    </radialGradient>
+    <linearGradient id="goldGrad192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE082" />
+      <stop offset="30%" stop-color="#D4AF37" />
+      <stop offset="70%" stop-color="#AA820A" />
+      <stop offset="100%" stop-color="#F3E5AB" />
+    </linearGradient>
+    <linearGradient id="rubyGrad192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF5252" />
+      <stop offset="100%" stop-color="#8E182A" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bgGlow192)" />
+  <rect width="500" height="500" x="6" y="6" rx="124" fill="none" stroke="url(#goldGrad192)" stroke-width="6" opacity="0.7" />
+  <circle cx="256" cy="256" r="185" fill="none" stroke="url(#goldGrad192)" stroke-width="4" opacity="0.8" />
+  <path d="M 120 340 C 180 390, 332 390, 392 340 C 370 280, 340 220, 256 160 C 172 220, 142 280, 120 340 Z" fill="none" stroke="url(#goldGrad192)" stroke-width="12" stroke-linejoin="round" />
+  <path d="M 140 310 L 170 200 L 210 260 L 256 140 L 302 260 L 342 200 L 372 310 Z" fill="url(#goldGrad192)" opacity="0.9" />
+  <path d="M 256 220 C 240 260, 240 280, 256 300 C 272 280, 272 260, 256 220 Z" fill="url(#rubyGrad192)" stroke="#FFE082" stroke-width="4" />
+  <circle cx="190" cy="290" r="14" fill="url(#rubyGrad192)" stroke="#FFE082" stroke-width="3" />
+  <circle cx="322" cy="290" r="14" fill="url(#rubyGrad192)" stroke="#FFE082" stroke-width="3" />
+  <path d="M 256 95 Q 256 120, 275 120 Q 256 120, 256 145 Q 256 120, 237 120 Q 256 120, 256 95 Z" fill="#FFF8E7" />
+  <text x="256" y="445" font-family="'Cinzel', serif, Georgia" font-size="44" font-weight="bold" fill="url(#goldGrad192)" text-anchor="middle" letter-spacing="8">SWARNATRY</text>
+</svg>

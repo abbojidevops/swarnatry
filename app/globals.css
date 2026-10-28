@@ -1,0 +1,262 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800;900&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0b0b0e;
+  --foreground: #faf8f5;
+  --gold-primary: #d4af37;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(circle at 50% -20%, rgba(212, 175, 55, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 100% 50%, rgba(142, 24, 42, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 0% 80%, rgba(212, 175, 55, 0.06) 0%, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Typography styles */
+.font-cinzel {
+  font-family: 'Cinzel', serif;
+}
+
+.font-playfair {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Telugu typography enhancement */
+.lang-te {
+  font-family: 'Noto Sans Telugu', 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.lang-te button,
+.lang-te .btn-wrap {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* Custom Scrollbars with Gold Trim */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0e0e13;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3a321a;
+  border-radius: 9999px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d4af37;
+}
+
+/* Range input styling for luxury gold sliders */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #1c1c26;
+  border: 1px solid #332d1d;
+  height: 6px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff3c4 10%, #d4af37 60%, #947219 100%);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.6);
+  border: 2px solid #ffffff;
+  cursor: grab;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.2);
+  box-shadow: 0 0 16px rgba(212, 175, 55, 0.9);
+}
+
+/* Gold foil text gradient */
+.text-gold-gradient {
+  background: linear-gradient(135deg, #fff2c2 0%, #d4af37 50%, #aa801b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gold-bright {
+  background: linear-gradient(135deg, #ffffff 0%, #ffe386 45%, #d4af37 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Heritage pattern subtle borders */
+.border-gold-subtle {
+  border-color: rgba(212, 175, 55, 0.22);
+}
+
+.border-gold-glow {
+  border-color: rgba(212, 175, 55, 0.45);
+  box-shadow: 0 0 15px -3px rgba(212, 175, 55, 0.25);
+}
+
+/* Glassmorphism royal dark */
+.glass-royal {
+  background: rgba(18, 18, 25, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(212, 175, 55, 0.18);
+}
+
+.glass-royal-dense {
+  background: rgba(14, 14, 20, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+}
+
+/* Gold button hover effects */
+.btn-gold-primary {
+  background: linear-gradient(135deg, #e6c35c 0%, #d4af37 50%, #a67c1e 100%);
+  color: #0b0b0e;
+  font-weight: 600;
+  border: 1px solid #ffeaa7;
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-gold-primary:hover {
+  background: linear-gradient(135deg, #fff0b3 0%, #dfb83b 50%, #b88a24 100%);
+  box-shadow: 0 6px 25px rgba(212, 175, 55, 0.55);
+  transform: translateY(-1px);
+}
+
+.btn-gold-secondary {
+  background: rgba(28, 28, 38, 0.7);
+  color: #FAF8F5;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-gold-secondary:hover {
+  background: rgba(40, 40, 55, 0.9);
+  border-color: rgba(212, 175, 55, 0.6);
+  color: #FFE484;
+}
+
+/* ======================================================== */
+/* High-Definition Print Styles for A4 & 80mm Thermal Slips */
+/* ======================================================== */
+.print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    background-image: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr, .print-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-totals {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    break-before: auto;
+  }
+
+  .no-print,
+  header,
+  footer,
+  main,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Make modal container full width and white */
+  .fixed.inset-0 {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
+  .max-w-4xl {
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  #printable-estimate-slip {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* 80mm POS Thermal Slip Monochrome Rules */
+  .thermal-slip-mode {
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    color: #000000 !important;
+    background: transparent !important;
+    font-family: 'Courier New', Courier, monospace !important;
+  }
+
+  .thermal-slip-mode * {
+    color: #000000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-color: #000000 !important;
+  }
+}
+
