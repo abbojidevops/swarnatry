@@ -51,6 +51,7 @@ import {
   Phone,
   Building,
   MapPin,
+  Share2,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import {
@@ -170,6 +171,19 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
     return Boolean(getLocalShowroomSettings().gstOnMakingOnly);
   });
   const [settingsSavedSuccess, setSettingsSavedSuccess] = useState<boolean>(false);
+
+  // Multi-Showroom Partner Shareable Links State (Phase 5)
+  const [partnerShopInput, setPartnerShopInput] = useState<string>(() => {
+    return getLocalShowroomSettings().showroomName || "Sri Krishna Jewellers";
+  });
+  const [partnerPhoneInput, setPartnerPhoneInput] = useState<string>(() => {
+    return getPaymentSettings().showroomPhone || "+91 98765 43210";
+  });
+  const [partnerCityInput, setPartnerCityInput] = useState<string>("Hyderabad");
+  const [partnerRateInput, setPartnerRateInput] = useState<string>(() => {
+    return String(getLocalShowroomSettings().goldRate22K || 7250);
+  });
+  const [copiedPartnerLink, setCopiedPartnerLink] = useState<boolean>(false);
 
   // Step 1: Image & Background Isolation State
   const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
@@ -339,6 +353,46 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
       colors: ["#D4AF37", "#10B981"],
     });
     setTimeout(() => setSettingsSavedSuccess(false), 3000);
+  };
+
+  // Multi-Showroom Partner Shareable URL Generator (Phase 5)
+  const getGeneratedPartnerUrl = () => {
+    if (typeof window === "undefined") return "";
+    const cleanPhone = partnerPhoneInput.replace(/\D/g, "");
+    const params = new URLSearchParams();
+    if (partnerShopInput.trim()) params.set("shop", partnerShopInput.trim());
+    if (partnerRateInput.trim() && !isNaN(Number(partnerRateInput))) {
+      params.set("rate22k", partnerRateInput.trim());
+    }
+    if (cleanPhone) params.set("wa", cleanPhone);
+    if (partnerCityInput.trim()) params.set("city", partnerCityInput.trim());
+    return `${window.location.origin}/?${params.toString()}`;
+  };
+
+  const handleCopyPartnerLink = async () => {
+    const url = getGeneratedPartnerUrl();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedPartnerLink(true);
+      setTimeout(() => setCopiedPartnerLink(false), 3000);
+    } catch (err) {
+      console.warn("Failed to copy partner link:", err);
+    }
+  };
+
+  const handleSharePartnerWhatsApp = () => {
+    const url = getGeneratedPartnerUrl();
+    if (!url) return;
+    const msg = isTe
+      ? `నమస్తే! ${partnerShopInput} వర్చువల్ జ్యువెలరీ ట్రై-ఆన్ & గోల్డ్ రేట్ ఎస్టిమేటర్ ఇక్కడ చూడండి:\n${url}`
+      : `Namaste! Explore our virtual jewelry try-on & live gold rate estimator for ${partnerShopInput}:\n${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
+  const handleOpenPartnerPreview = () => {
+    const url = getGeneratedPartnerUrl();
+    if (url) window.open(url, "_blank");
   };
 
   // Safe delete with automatic timestamped backup (Item 18)
@@ -1433,6 +1487,148 @@ export const AdminUploadStudio: React.FC<AdminUploadStudioProps> = ({
                 Save All Payment & Admin Settings
               </button>
             </form>
+
+            {/* Feature D: Partner Showroom Instant Link Generator */}
+            <div className="rounded-2xl bg-obsidian-950/90 border border-gold-500/40 p-5 space-y-4 shadow-xl">
+              <div className="border-b border-gold-900/60 pb-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-cinzel text-base font-bold text-ivory flex items-center gap-2">
+                    <Share2 className="w-4 h-4 text-gold-400" />
+                    <span>Partner Showroom Instant Link Generator (మల్టీ-షోరూమ్ భాగస్వామ్య లింక్)</span>
+                  </h4>
+                  <span className="text-[10px] bg-gold-500/10 text-gold-300 border border-gold-500/30 px-2 py-0.5 rounded-full font-semibold">
+                    Multi-Tenant SaaS
+                  </span>
+                </div>
+                <p className="text-xs text-ivory-muted mt-1">
+                  Generate instant white-labeled URLs for partner goldsmiths, branch showrooms, or marketing campaigns. Opening this link automatically rebrands the catalog, locks the custom 22K rate, and routes WhatsApp orders to the partner.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="space-y-1.5">
+                  <label className="text-ivory-muted flex items-center gap-1.5">
+                    <Building className="w-3.5 h-3.5 text-gold-400" />
+                    <span>Partner Showroom Name:</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={partnerShopInput}
+                    onChange={(e) => setPartnerShopInput(e.target.value)}
+                    placeholder="e.g. Sri Krishna Jewellers"
+                    className="w-full bg-obsidian-900 border border-gold-500/40 rounded-xl px-3.5 py-2 text-xs text-ivory focus:outline-none focus:border-gold-400"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-ivory-muted flex items-center gap-1.5">
+                    <Scale className="w-3.5 h-3.5 text-gold-400" />
+                    <span>Locked 22K Gold Rate (₹/g):</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={partnerRateInput}
+                    onChange={(e) => setPartnerRateInput(e.target.value)}
+                    placeholder="e.g. 7250"
+                    className="w-full bg-obsidian-900 border border-gold-500/40 rounded-xl px-3.5 py-2 text-xs text-ivory focus:outline-none focus:border-gold-400 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-ivory-muted flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-gold-400" />
+                    <span>WhatsApp / Direct Orders Phone:</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={partnerPhoneInput}
+                    onChange={(e) => setPartnerPhoneInput(e.target.value)}
+                    placeholder="e.g. +91 98765 43210"
+                    className="w-full bg-obsidian-900 border border-gold-500/40 rounded-xl px-3.5 py-2 text-xs text-ivory focus:outline-none focus:border-gold-400 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-ivory-muted flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-gold-400" />
+                    <span>City / Branch Location:</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={partnerCityInput}
+                    onChange={(e) => setPartnerCityInput(e.target.value)}
+                    placeholder="e.g. Hyderabad, Vijayawada"
+                    className="w-full bg-obsidian-900 border border-gold-500/40 rounded-xl px-3.5 py-2 text-xs text-ivory focus:outline-none focus:border-gold-400"
+                  />
+                </div>
+              </div>
+
+              {/* Generated URL Box */}
+              <div className="p-3.5 rounded-xl bg-obsidian-900/90 border border-gold-900/60 space-y-2">
+                <span className="text-[11px] font-semibold text-gold-400 uppercase tracking-wider">
+                  Generated Partner Shareable URL:
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={getGeneratedPartnerUrl()}
+                    className="w-full bg-obsidian-950 border border-gold-900/40 rounded-lg px-3 py-1.5 text-xs text-gold-200/90 font-mono select-all focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCopyPartnerLink}
+                    className="shrink-0 bg-gold-500 hover:bg-gold-400 text-obsidian-950 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                    title="Copy URL"
+                  >
+                    {copiedPartnerLink ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-obsidian-950" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons & Showroom Preview Pill */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={handleSharePartnerWhatsApp}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Share on WhatsApp</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenPartnerPreview}
+                    className="bg-obsidian-900 hover:bg-obsidian-850 text-gold-300 border border-gold-900/60 px-3.5 py-2 rounded-xl font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-gold-400" />
+                    <span>Open Test Preview</span>
+                  </button>
+                </div>
+
+                {/* Live Preview Pill */}
+                <div className="flex items-center gap-2 text-[11px] bg-obsidian-900/80 border border-gold-500/30 px-3 py-1.5 rounded-xl">
+                  <span className="text-ivory font-bold">{partnerShopInput || "Partner"}</span>
+                  {partnerCityInput && (
+                    <span className="text-ivory-muted">• {partnerCityInput}</span>
+                  )}
+                  <span className="text-gold-400 font-mono font-bold">
+                    ₹{partnerRateInput}/g
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           /* TAB 1: Step-by-Step Upload Studio Wizard */

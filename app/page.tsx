@@ -44,25 +44,52 @@ import {
   PlusCircle,
   QrCode,
   Layers,
+  X,
 } from "lucide-react";
+import { savePaymentSettings } from "@/lib/paymentGateway";
+import { useLanguage } from "@/context/LanguageContext";
 
 /**
  * Helper component inside Suspense to read URL deep-link query parameters
- * e.g. ?tryon=SW-HRM-104&mode=live-ar
+ * e.g. ?tryon=SW-HRM-104&mode=live-ar OR ?shop=Sri+Vasavi+Gold&rate22k=7250&wa=919876543210
  */
 function DeepLinkHandler({
   catalog,
   onDeepLinkMatch,
+  onPartnerShowroomMatch,
 }: {
   catalog: JewelryItem[];
   onDeepLinkMatch: (
     item: JewelryItem,
     mode: "live-ar" | "photo-match" | "calculator" | "bridal"
   ) => void;
+  onPartnerShowroomMatch?: (params: {
+    shop: string;
+    rate22k?: number;
+    phone?: string;
+    city?: string;
+  }) => void;
 }) {
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    // 1. Partner Showroom Link Query Parameters (?shop=...&rate22k=...&wa=...&city=...)
+    const shop = searchParams.get("shop") || searchParams.get("showroom");
+    const rate22kParam = searchParams.get("rate22k") || searchParams.get("rate");
+    const waParam = searchParams.get("wa") || searchParams.get("phone");
+    const cityParam = searchParams.get("city");
+
+    if (shop && onPartnerShowroomMatch) {
+      const rateNum = rate22kParam ? parseFloat(rate22kParam) : undefined;
+      onPartnerShowroomMatch({
+        shop,
+        rate22k: rateNum && !isNaN(rateNum) && rateNum > 0 ? rateNum : undefined,
+        phone: waParam || undefined,
+        city: cityParam || undefined,
+      });
+    }
+
+    // 2. Try-On Item Deep Link (?tryon=SKU&mode=...)
     const tryonSku = searchParams.get("tryon");
     const modeParam = searchParams.get("mode");
 
@@ -82,7 +109,7 @@ function DeepLinkHandler({
         onDeepLinkMatch(matched, mode);
       }
     }
-  }, [searchParams, catalog, onDeepLinkMatch]);
+  }, [searchParams, catalog, onDeepLinkMatch, onPartnerShowroomMatch]);
 
   return null;
 }
@@ -135,6 +162,40 @@ export default function Home() {
   const [isOrderLedgerOpen, setIsOrderLedgerOpen] = useState<boolean>(false);
   const [orderPrefillData, setOrderPrefillData] = useState<Partial<GoldsmithOrder> | null>(null);
   const [ordersCount, setOrdersCount] = useState<number>(0);
+
+  // Partner Showroom State (Phase 5)
+  const { isTe } = useLanguage();
+  const [partnerShowroomBanner, setPartnerShowroomBanner] = useState<{
+    shop: string;
+    city?: string;
+    rate22k?: number;
+  } | null>(null);
+
+  const handlePartnerShowroomMatch = (params: {
+    shop: string;
+    rate22k?: number;
+    phone?: string;
+    city?: string;
+  }) => {
+    updateShowroomName(params.shop);
+    setShowroomMode(true);
+    if (params.rate22k) {
+      const rate24k = Math.round(params.rate22k * (24 / 22));
+      updateRates(params.rate22k, rate24k);
+      toggleRateLock(true);
+    }
+    if (params.phone) {
+      savePaymentSettings({
+        showroomPhone: params.phone,
+        merchantName: params.shop,
+      });
+    }
+    setPartnerShowroomBanner({
+      shop: params.shop,
+      city: params.city,
+      rate22k: params.rate22k,
+    });
+  };
 
   // PWA Install & Interactive Onboarding (Phase 4)
   const { deferredPrompt, isInstallable, isStandalone } = usePWAInstall();
@@ -383,11 +444,12 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-obsidian-950 text-ivory">
-      {/* Deep Link Handler for ?tryon=SKU&mode=live-ar */}
+      {/* Deep Link Handler for ?tryon=SKU&mode=live-ar OR ?shop=...&rate22k=... */}
       <Suspense fallback={null}>
         <DeepLinkHandler
           catalog={catalog}
           onDeepLinkMatch={handleDeepLinkMatch}
+          onPartnerShowroomMatch={handlePartnerShowroomMatch}
         />
       </Suspense>
 
@@ -419,6 +481,35 @@ export default function Home() {
         onOpenTour={() => setIsOnboardingOpen(true)}
         onInstallPWA={isInstallable && !isStandalone ? handleTriggerInstall : undefined}
       />
+
+      {/* Partner Showroom Rebranded Welcome Banner (Phase 5) */}
+      {partnerShowroomBanner && (
+        <div className="bg-gradient-to-r from-gold-950 via-obsidian-900 to-gold-950 border-b border-gold-500/50 px-4 py-2 text-xs flex items-center justify-between text-gold-200">
+          <div className="flex items-center gap-2 max-w-4xl mx-auto flex-1">
+            <Store className="w-4 h-4 text-gold-400 shrink-0" />
+            <span>
+              <strong>{isTe ? "అధికారిక షోరూమ్ పోర్టల్:" : "Official Showroom Portal:"}</strong>{" "}
+              <span className="font-cinzel font-bold text-ivory tracking-wide">
+                {partnerShowroomBanner.shop}
+              </span>
+              {partnerShowroomBanner.city && (
+                <span className="text-ivory-muted ml-1">({partnerShowroomBanner.city})</span>
+              )}
+              {partnerShowroomBanner.rate22k && (
+                <span className="ml-2 px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono text-[11px]">
+                  22K Rate Locked: ₹{partnerShowroomBanner.rate22k.toLocaleString("en-IN")}/g
+                </span>
+              )}
+            </span>
+          </div>
+          <button
+            onClick={() => setPartnerShowroomBanner(null)}
+            className="text-ivory-muted hover:text-white p-1"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">

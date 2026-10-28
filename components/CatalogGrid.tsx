@@ -25,7 +25,10 @@ import {
   QrCode,
   Share2,
   Crown,
+  X,
+  Volume2,
 } from "lucide-react";
+import { VoiceSearchButton, ParsedVoiceCommand } from "@/components/VoiceSearchButton";
 import {
   BridalComboSlots,
   BridalSlotId,
@@ -65,9 +68,24 @@ export const CatalogGrid: React.FC<CatalogGridProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedStyle, setSelectedStyle] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [maxGramsFilter, setMaxGramsFilter] = useState<number | null>(null);
+  const [voiceTranscriptNotice, setVoiceTranscriptNotice] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<
     "grams-asc" | "grams-desc" | "price-asc" | "price-desc"
   >("grams-asc");
+
+  const handleVoiceCommand = (cmd: ParsedVoiceCommand) => {
+    if (cmd.category) {
+      setSelectedCategory(cmd.category);
+    }
+    if (cmd.targetGrams) {
+      setMaxGramsFilter(cmd.targetGrams);
+    }
+    if (cmd.query && !cmd.category) {
+      setSearchQuery(cmd.query);
+    }
+    setVoiceTranscriptNotice(cmd.transcript);
+  };
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -77,6 +95,9 @@ export const CatalogGrid: React.FC<CatalogGridProps> = ({
           return false;
         }
         if (selectedStyle !== "all" && item.style !== selectedStyle) {
+          return false;
+        }
+        if (maxGramsFilter && item.minGrams > maxGramsFilter) {
           return false;
         }
         if (searchQuery.trim()) {
@@ -193,15 +214,27 @@ export const CatalogGrid: React.FC<CatalogGridProps> = ({
 
         {/* Secondary Filter Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-gold-900/40">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-gold-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search by Design ID (e.g. SW-HRM-104), stone, or craft..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-obsidian-950 border border-gold-900/70 rounded-xl pl-9 pr-4 py-2 text-xs sm:text-sm text-ivory placeholder-ivory-muted/50 focus:outline-none focus:border-gold-500/60"
-            />
+          <div className="flex items-center gap-2 flex-1">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-gold-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by Design ID, stone, or craft... (లేదా మాట్లాడండి)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-obsidian-950 border border-gold-900/70 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm text-ivory placeholder-ivory-muted/50 focus:outline-none focus:border-gold-500/60"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ivory-muted hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <VoiceSearchButton onParsedVoiceCommand={handleVoiceCommand} />
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -250,6 +283,38 @@ export const CatalogGrid: React.FC<CatalogGridProps> = ({
             )}
           </div>
         </div>
+
+        {/* Active Voice Search / Gram Filter Banner */}
+        {(voiceTranscriptNotice || maxGramsFilter) && (
+          <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-gold-950/60 border border-gold-500/40 text-xs text-gold-200 animate-in fade-in">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Volume2 className="w-4 h-4 text-gold-400 shrink-0" />
+              <span>
+                {voiceTranscriptNotice ? (
+                  <>
+                    <strong className="text-gold-300">Voice Query:</strong> &ldquo;{voiceTranscriptNotice}&rdquo;
+                  </>
+                ) : null}
+                {maxGramsFilter ? (
+                  <span className="ml-2 px-2 py-0.5 rounded-full bg-gold-500/20 border border-gold-500/40 text-gold-300 text-[11px] font-mono">
+                    Max: {maxGramsFilter}g
+                  </span>
+                ) : null}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setVoiceTranscriptNotice(null);
+                setMaxGramsFilter(null);
+                setSearchQuery("");
+                setSelectedCategory("all");
+              }}
+              className="px-2.5 py-1 rounded-lg bg-obsidian-900 border border-gold-900/60 text-[11px] text-ivory-muted hover:text-white transition-colors shrink-0"
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Bridal Combo Banner */}

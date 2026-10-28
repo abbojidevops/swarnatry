@@ -11,9 +11,17 @@ import {
   initFaceLandmarker,
   detectFaceAnchors,
   FaceAnchors,
+  DEFAULT_FACE_ANCHORS,
 } from "@/lib/faceLandmarker";
 import { formatINR } from "@/lib/goldMath";
 import { useLanguage } from "@/context/LanguageContext";
+import {
+  analyzeFaceShape,
+  calculateSuitability,
+  FaceAnalysisResult,
+  SuitabilityScore,
+} from "@/lib/faceStylistEngine";
+import { FaceSuitabilityBadge } from "@/components/FaceSuitabilityBadge";
 import {
   BridalComboSlots,
   BridalSlotId,
@@ -40,6 +48,7 @@ import {
   Gem,
   Flame,
   CircleDot,
+  Columns,
 } from "lucide-react";
 
 interface LiveARTryOnProps {
@@ -112,6 +121,33 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
   // Snapshot modal state
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
+  // Mobile detection for 9:16 portrait viewport
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  useEffect(() => {
+    const check = () => {
+      setIsMobile(
+        window.innerWidth < 768 ||
+          /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      );
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Split-Screen Side-by-Side Compare State (Phase 5)
+  const [isSplitCompare, setIsSplitCompare] = useState<boolean>(false);
+  const [frozenSnapshotLeft, setFrozenSnapshotLeft] = useState<string | null>(null);
+  const [frozenItemLeft, setFrozenItemLeft] = useState<JewelryItem | null>(null);
+
+  // AI Face-Shape Stylist State (Phase 5)
+  const [faceAnalysis, setFaceAnalysis] = useState<FaceAnalysisResult>(() =>
+    analyzeFaceShape(DEFAULT_FACE_ANCHORS)
+  );
+  const [suitability, setSuitability] = useState<SuitabilityScore>(() =>
+    calculateSuitability(selectedItem, analyzeFaceShape(DEFAULT_FACE_ANCHORS))
+  );
+
   // Refs
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -119,6 +155,8 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
   const animFrameIdRef = useRef<number | null>(null);
   const cachedJewelryImgRef = useRef<HTMLImageElement | null>(null);
   const cachedSlotImgsRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const previousAnchorsRef = useRef<FaceAnchors | null>(null);
+  const currentAnchorsRef = useRef<FaceAnchors | null>(null);
 
   // Sync initial item if changed from parent
   useEffect(() => {
@@ -253,6 +291,36 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
       }
     } else {
       setTrackingConfidence(0.9);
+    }
+
+    // Exponential Moving Average (EMA) Landmark Smoothing (smoothingFactor = 0.35)
+    if (anchors && anchors.detected) {
+      if (!previousAnchorsRef.current) {
+        previousAnchorsRef.current = anchors;
+      } else {
+        const alpha = 0.35; // Rock-steady hand-held jitter filter
+        const prev = previousAnchorsRef.current;
+        const smoothVal = (c: number, p: number) => p + (c - p) * alpha;
+        const smoothPt = (c: { x: number; y: number }, p: { x: number; y: number }) => ({
+          x: smoothVal(c.x, p.x),
+          y: smoothVal(c.y, p.y),
+        });
+
+        anchors = {
+          ...anchors,
+          faceWidth: smoothVal(anchors.faceWidth, prev.faceWidth),
+          faceHeight: smoothVal(anchors.faceHeight, prev.faceHeight),
+          rollAngle: smoothVal(anchors.rollAngle, prev.rollAngle),
+          neck: smoothPt(anchors.neck, prev.neck),
+          forehead: smoothPt(anchors.forehead, prev.forehead),
+          chin: smoothPt(anchors.chin, prev.chin),
+          leftEar: smoothPt(anchors.leftEar, prev.leftEar),
+          rightEar: smoothPt(anchors.rightEar, prev.rightEar),
+          noseWing: smoothPt(anchors.noseWing, prev.noseWing),
+        };
+        previousAnchorsRef.current = anchors;
+      }
+      currentAnchorsRef.current = anchors;
     }
 
     if (anchors) {
@@ -551,6 +619,46 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
     }
   };
 
+  // Periodically compute Face Stylist recommendations from live anchors
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (currentAnchorsRef.current) {
+        const analysis = analyzeFaceShape(currentAnchorsRef.current);
+        setFaceAnalysis(analysis);
+        setSuitability(calculateSuitability(selectedItem, analysis));
+      }
+    }, 450);
+    return () => clearInterval(timer);
+  }, [selectedItem]);
+
+  // Freeze current live camera trial for Split Compare
+  const handleFreezeCurrentForCompare = () => {
+    const video = webcamRef.current?.video;
+    const overlayCanvas = canvasRef.current;
+    if (!video || !overlayCanvas) return;
+
+    const snapCanvas = document.createElement("canvas");
+    snapCanvas.width = video.videoWidth || 1280;
+    snapCanvas.height = video.videoHeight || 720;
+    const ctx = snapCanvas.getContext("2d");
+    if (!ctx) return;
+
+    if (facingMode === "user") {
+      ctx.translate(snapCanvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
+    if (facingMode === "user") {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.translate(snapCanvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(overlayCanvas, 0, 0, snapCanvas.width, snapCanvas.height);
+    const dataUri = snapCanvas.toDataURL("image/jpeg", 0.9);
+    setFrozenSnapshotLeft(dataUri);
+    setFrozenItemLeft(selectedItem);
+  };
+
   // Capture High-Res Snapshot
   const handleTakeSnapshot = () => {
     const video = webcamRef.current?.video;
@@ -673,6 +781,26 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
               </span>
             </button>
           )}
+          {/* Split-Screen Side-by-Side Compare */}
+          <button
+            onClick={() => {
+              if (!isSplitCompare) {
+                handleFreezeCurrentForCompare();
+                setIsSplitCompare(true);
+              } else {
+                setIsSplitCompare(false);
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md transition-all shadow-lg ${
+              isSplitCompare
+                ? "bg-gradient-to-r from-amber-600 via-gold-500 to-amber-600 text-obsidian-950 border border-gold-300 shadow-gold-glow scale-105"
+                : "bg-obsidian-950/85 text-gold-300 border border-gold-900/80 hover:border-gold-500"
+            }`}
+            title="Split-Screen Side-by-Side Compare (పోల్చి చూడండి)"
+          >
+            <Columns className="w-3.5 h-3.5" />
+            <span>{isSplitCompare ? (isTe ? "స్ప్లిట్ ఆపండి" : "Exit Split") : (isTe ? "పోల్చి చూడండి" : "Split Compare")}</span>
+          </button>
         </div>
 
         {/* Right Actions */}
@@ -703,7 +831,7 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
       </div>
 
       {/* Main AR Video & Canvas Viewport */}
-      <div className="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-obsidian-900 overflow-hidden flex items-center justify-center">
+      <div className="relative w-full aspect-[9/16] sm:aspect-[4/3] md:aspect-[16/10] min-h-[480px] sm:min-h-0 bg-obsidian-900 overflow-hidden flex items-center justify-center">
         {cameraState === "denied" || cameraState === "unavailable" ? (
           <div className="text-center p-8 max-w-md mx-auto space-y-4 animate-in fade-in">
             <div className="w-16 h-16 rounded-2xl bg-amber-950/70 border border-amber-500/50 flex items-center justify-center text-amber-400 mx-auto">
@@ -738,6 +866,91 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
               )}
             </div>
           </div>
+        ) : isSplitCompare && frozenSnapshotLeft ? (
+          /* Split-Screen Side-by-Side Compare (Phase 5) */
+          <div className="absolute inset-0 flex z-10">
+            {/* Left Column: Frozen Design A */}
+            <div className="relative w-1/2 h-full overflow-hidden border-r-2 border-gold-500/80 bg-obsidian-950 flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={frozenSnapshotLeft}
+                alt="Design A"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute top-16 left-3 bg-obsidian-950/90 border border-gold-500/70 rounded-xl px-2.5 py-1.5 backdrop-blur-md shadow-lg space-y-0.5">
+                <span className="text-[10px] font-bold text-gold-400 uppercase tracking-wider block font-mono">
+                  Design A (లాక్ చేయబడింది)
+                </span>
+                <span className="text-xs font-cinzel font-bold text-ivory block truncate max-w-[130px] sm:max-w-xs">
+                  {frozenItemLeft?.name || "Design A"}
+                </span>
+                {frozenItemLeft && (
+                  <span className="text-[11px] font-semibold text-emerald-400 block font-mono">
+                    {formatINR(
+                      frozenItemLeft.defaultGrams *
+                        goldRate22K *
+                        (1 + frozenItemLeft.wastagePercent / 100) *
+                        1.03
+                    )}
+                  </span>
+                )}
+              </div>
+
+              <button
+                onClick={handleFreezeCurrentForCompare}
+                className="absolute bottom-3 left-3 bg-gold-600 hover:bg-gold-500 text-obsidian-950 text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-md flex items-center gap-1 transition-all"
+                title="Replace Design A with current live trial"
+              >
+                <Camera className="w-3 h-3" />
+                <span>{isTe ? "ఈ డిజైన్ లాక్ చేయండి" : "Freeze as A"}</span>
+              </button>
+            </div>
+
+            {/* Right Column: Live AR Trial Design B */}
+            <div className="relative w-1/2 h-full overflow-hidden">
+              <Webcam
+                ref={webcamRef}
+                audio={false}
+                videoConstraints={{
+                  facingMode,
+                  width: isMobile ? { ideal: 720 } : { ideal: 1280 },
+                  height: isMobile ? { ideal: 1280 } : { ideal: 720 },
+                }}
+                onUserMedia={() => setCameraState("granted")}
+                mirrored={facingMode === "user"}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <canvas
+                ref={canvasRef}
+                className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${
+                  facingMode === "user" ? "scale-x-[-1]" : ""
+                }`}
+              />
+              <div className="absolute top-16 right-3 bg-obsidian-950/90 border border-emerald-500/70 rounded-xl px-2.5 py-1.5 backdrop-blur-md shadow-lg text-right space-y-0.5">
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block font-mono">
+                  Design B (లైవ్ ట్రయల్)
+                </span>
+                <span className="text-xs font-cinzel font-bold text-ivory block truncate max-w-[130px] sm:max-w-xs">
+                  {selectedItem.name}
+                </span>
+                <span className="text-[11px] font-semibold text-emerald-300 block font-mono">
+                  {formatINR(
+                    selectedItem.defaultGrams *
+                      goldRate22K *
+                      (1 + selectedItem.wastagePercent / 100) *
+                      1.03
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Central Compare VS Badge */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
+              <div className="w-8 h-8 rounded-full bg-gold-500 text-obsidian-950 flex items-center justify-center font-bold text-xs shadow-gold-glow border-2 border-obsidian-950 font-mono">
+                VS
+              </div>
+            </div>
+          </div>
         ) : (
           <>
             <Webcam
@@ -745,8 +958,8 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
               audio={false}
               videoConstraints={{
                 facingMode,
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
+                width: isMobile ? { ideal: 720 } : { ideal: 1280 },
+                height: isMobile ? { ideal: 1280 } : { ideal: 720 },
               }}
               onUserMedia={() => setCameraState("granted")}
               onUserMediaError={(err: any) => {
@@ -767,6 +980,15 @@ export const LiveARTryOn: React.FC<LiveARTryOnProps> = ({
               }`}
             />
           </>
+        )}
+
+        {/* AI Face-Shape Stylist Recommendation Badge (Phase 5) */}
+        {!isSplitCompare && (
+          <FaceSuitabilityBadge
+            analysis={faceAnalysis}
+            suitability={suitability}
+            className="absolute top-16 sm:top-20 right-4 z-20 max-w-[260px] sm:max-w-xs"
+          />
         )}
 
         {/* Live Active Ornament Pill Overlay */}

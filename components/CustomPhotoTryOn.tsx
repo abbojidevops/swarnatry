@@ -21,6 +21,12 @@ import {
   BRIDAL_SLOT_CONFIGS,
   calculateComboSetTotals,
 } from "@/lib/comboSetStore";
+import { FaceSuitabilityBadge } from "@/components/FaceSuitabilityBadge";
+import {
+  getPresetFaceAnalysis,
+  calculateSuitability,
+  FaceShape,
+} from "@/lib/faceStylistEngine";
 import {
   Upload,
   Sparkles,
@@ -76,6 +82,13 @@ export interface PhotoLayer {
   visible: boolean;
 }
 
+const PORTRAIT_FACE_SHAPES: Record<string, FaceShape> = {
+  "portrait-bridal-1": "oval",
+  "portrait-bridal-2": "heart",
+  "portrait-bridal-3": "round",
+  "portrait-bridal-4": "square",
+};
+
 export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
   initialItem,
   catalog = MOCK_JEWELRY_CATALOG,
@@ -117,6 +130,17 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
 
   // Active selected layer helper
   const selectedLayer = layers.find((l) => l.id === selectedLayerId) || null;
+
+  // AI Face Shape Stylist State (Phase 5)
+  const [manualFaceShape, setManualFaceShape] = useState<FaceShape>("oval");
+  const activeFaceShape: FaceShape =
+    (selectedPortrait && PORTRAIT_FACE_SHAPES[selectedPortrait.id]) || manualFaceShape;
+  const currentFaceAnalysis = getPresetFaceAnalysis(activeFaceShape);
+  const activeOrnament =
+    selectedLayer?.item || layers.find((l) => l.item)?.item || initialItem || null;
+  const activeSuitability = activeOrnament
+    ? calculateSuitability(activeOrnament, currentFaceAnalysis)
+    : null;
 
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -781,6 +805,66 @@ export const CustomPhotoTryOn: React.FC<CustomPhotoTryOnProps> = ({
             </label>
           </div>
         </div>
+      </div>
+
+      {/* Feature B: AI Face Shape Stylist & Recommendation Banner */}
+      <div className="bg-obsidian-950/80 border border-gold-900/60 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-gold-400" />
+            <span className="text-xs font-bold text-ivory uppercase tracking-wider font-cinzel">
+              AI Face-Shape Advisor (ముఖ ఆకృతి సలహాదారు)
+            </span>
+            <span className="text-[10px] bg-gold-500/15 text-gold-300 border border-gold-500/30 px-2 py-0.5 rounded-full font-semibold">
+              {currentFaceAnalysis.shapeLabel} ({currentFaceAnalysis.shapeTeluguLabel})
+            </span>
+          </div>
+
+          {/* Quick Face Shape Selector Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {(["oval", "round", "heart", "square"] as FaceShape[]).map((shape) => {
+              const labels: Record<FaceShape, { en: string; te: string }> = {
+                oval: { en: "Oval", te: "కోల" },
+                round: { en: "Round", te: "గుండ్రని" },
+                heart: { en: "Heart", te: "వి-షేప్" },
+                square: { en: "Square", te: "విశాల" },
+              };
+              const isSelected = activeFaceShape === shape;
+              return (
+                <button
+                  key={shape}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPortrait(null);
+                    setManualFaceShape(shape);
+                  }}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-medium transition-all ${
+                    isSelected
+                      ? "bg-gold-500 text-obsidian-950 font-bold shadow-gold-glow/20"
+                      : "bg-obsidian-900 text-ivory-muted hover:text-ivory border border-white/5"
+                  }`}
+                >
+                  <span>{labels[shape].en}</span>
+                  <span className="text-[9px] opacity-75 ml-1">({labels[shape].te})</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Active Suitability Badge for current ornament */}
+        {activeOrnament && activeSuitability ? (
+          <div className="pt-1">
+            <FaceSuitabilityBadge
+              analysis={currentFaceAnalysis}
+              suitability={activeSuitability}
+            />
+          </div>
+        ) : (
+          <p className="text-[11px] text-ivory-muted italic">
+            Select or drag any ornament onto the portrait to see real-time AI face-shape matching &amp; styling advice.
+          </p>
+        )}
       </div>
 
       {/* Main Workspace Grid */}
